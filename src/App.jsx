@@ -18,7 +18,7 @@ export default function App() {
       // Send a POST request to the FastAPI backend.
       // IMPORTANT: Replace the URL below with the actual URL of your friend's FastAPI backend.
       // The backend should have an endpoint that accepts a JSON body with a "narrative" key.
-      const response = await fetch('http://10.42.0.239:8000/generate-code', {
+      const response = await fetch('http://127.0.0.1:8000/generate-code', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
