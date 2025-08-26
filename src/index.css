@@ -1,16 +1,12 @@
-/*
- * This is the CSS for the Narrative to ST Code frontend.
- * It provides all the styling for the application's components.
- */
-
-/* Basic body and container styling for dark theme and centering */
+/* General body and root styling */
 body {
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  color: #e5e7eb; /* Light gray text */
-  background-color: #111827; /* Dark gray background */
+  color: #e5e7eb;
+  background-color: #111827;
 }
 
+/* App container and card styling */
 .app-container {
   display: flex;
   flex-direction: column;
@@ -22,54 +18,142 @@ body {
 .card {
   margin-left: auto;
   margin-right: auto;
-  max-width: 48rem; /* Equivalent to max-w-4xl */
-  background-color: #1f2937; /* Equivalent to bg-gray-800 */
+  max-width: 48rem;
+  background-color: #1f2937;
   padding: 2rem;
-  border-radius: 1rem; /* Equivalent to rounded-2xl */
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Equivalent to shadow-xl */
+  border-radius: 1rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 /* Title and description styling */
 .title {
-  font-size: 3rem; /* Equivalent to text-5xl */
-  font-weight: 800; /* Equivalent to font-extrabold */
+  font-size: 3rem;
+  font-weight: 800;
   text-align: center;
-  color: #2dd4bf; /* Equivalent to text-teal-400 */
+  color: #2dd4bf;
   margin-bottom: 0.5rem;
 }
 
 .description {
   text-align: center;
-  color: #9ca3af; /* Equivalent to text-gray-400 */
-  font-size: 1.125rem; /* Equivalent to text-lg */
+  color: #9ca3af;
+  font-size: 1.125rem;
   margin-bottom: 2rem;
 }
 
-/* Input area styling */
-.input-area {
-  margin-bottom: 1.5rem;
+/* Switch interface styles */
+.switch-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 2rem;
+  gap: 1rem;
 }
 
-.text-input {
-  width: 100%;
-  height: 12rem; /* Equivalent to h-48 */
-  padding: 1rem;
-  font-size: 1.125rem; /* Equivalent to text-lg */
-  color: #e5e7eb; /* Equivalent to text-gray-200 */
-  background-color: #374151; /* Equivalent to bg-gray-700 */
-  border: 1px solid #4b5563; /* Equivalent to border-gray-600 */
-  border-radius: 0.75rem; /* Equivalent to rounded-xl */
+.switch-button {
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  border-radius: 0.5rem;
+  border: 1px solid #4b5563;
+  background-color: #1f2937;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.switch-button:hover {
+  background-color: #374151;
+}
+
+.switch-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Variable form styling */
+.variable-row {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1.5fr 0.5fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: center;
+}
+
+.text-input-small, .select-input {
+  padding: 0.75rem;
+  font-size: 1rem;
+  color: #e5e7eb;
+  background-color: #374151;
+  border: 1px solid #4b5563;
+  border-radius: 0.5rem;
   box-sizing: border-box;
-  resize: none;
-  transition: all 0.3s ease-in-out;
+  width: 100%;
 }
 
-.text-input:focus {
-  outline: 2px solid #2dd4bf; /* Equivalent to focus:outline-none focus:ring-2 focus:ring-teal-500 */
+.select-input {
+  cursor: pointer;
+}
+
+.text-input-small:focus, .select-input:focus {
+  outline: 2px solid #2dd4bf;
   border-color: #2dd4bf;
 }
 
-/* Button styling */
+.button-container-small {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.add-button {
+  padding: 0.5rem 1rem;
+  background-color: #4b5563;
+  color: #fff;
+  font-weight: 700;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.add-button:hover {
+  background-color: #6b7280;
+}
+
+.remove-button {
+  padding: 0.5rem 1rem;
+  background-color: #ef4444;
+  color: #fff;
+  font-weight: 700;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.remove-button:hover {
+  background-color: #dc2626;
+}
+
+.no-variables-message {
+  text-align: center;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.success-message {
+  text-align: center;
+  color: #10b981;
+  margin-top: 1rem;
+  font-weight: 600;
+}
+
+.user-id {
+  font-weight: 600;
+  color: #2dd4bf;
+  word-break: break-all;
+}
+
+/* Other general styles */
 .button-container {
   display: flex;
   justify-content: center;
@@ -77,97 +161,37 @@ body {
 }
 
 .generate-button {
-  padding: 0.75rem 2rem; /* Equivalent to px-8 py-3 */
-  background-image: linear-gradient(to right, #2dd4bf, #06b6d4); /* Equivalent to bg-gradient-to-r from-teal-500 to-cyan-600 */
+  padding: 0.75rem 2rem;
+  background-image: linear-gradient(to right, #2dd4bf, #06b6d4);
   color: #fff;
   font-weight: 700;
-  border-radius: 9999px; /* Equivalent to rounded-full */
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Equivalent to shadow-lg */
+  border-radius: 9999px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   transition: all 0.3s ease-in-out;
   border: none;
   cursor: pointer;
 }
 
-.generate-button:hover {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Equivalent to hover:shadow-xl */
-  transform: scale(1.05);
+/* New input area styling */
+.input-area {
+  margin-bottom: 1.5rem;
 }
 
-.generate-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Status and output styling */
-.loading-message {
-  text-align: center;
-  color: #2dd4bf;
-  font-size: 1.25rem;
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.error-box {
-  background-color: #991b1b;
+.text-input {
+  width: 100%;
+  height: 12rem;
   padding: 1rem;
+  font-size: 1.125rem;
+  color: #e5e7eb;
+  background-color: #374151;
+  border: 1px solid #4b5563;
   border-radius: 0.75rem;
-  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
-  border: 1px solid #b91c1c;
+  box-sizing: border-box;
+  resize: none;
+  transition: all 0.3s ease-in-out;
 }
 
-.error-title {
-  color: #fca5a5;
-  font-weight: 700;
-  margin-bottom: 0.25rem;
-}
-
-.error-message {
-  color: #fecaca;
-  word-break: break-all;
-}
-
-/*
- * --- Compiler Design Styles ---
- */
-.code-box {
-  background-color: #242424; /* A dark, neutral color for the code area */
-  padding: 1.5rem;
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  border: 1px solid #374151; /* A subtle border */
-  display: flex;
-  flex-direction: column;
-}
-
-.code-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #6ee7b7; /* A bright color for the heading */
-  margin-bottom: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid #4b5563;
-  padding-bottom: 0.5rem;
-}
-
-.code-block {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-size: 1rem;
-  background-color: #1e1e1e; /* Even darker background for the code itself */
-  padding: 1rem;
-  border-radius: 0.5rem;
-  overflow-x: auto;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace; /* Monospaced font for code */
-  line-height: 1.4;
-  flex-grow: 1;
-}
-
-.code {
-  color: #c7d2fe; /* A contrasting text color for better readability */
-}
-
-/* Define the pulse animation */
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+.text-input:focus {
+  outline: 2px solid #2dd4bf;
+  border-color: #2dd4bf;
 }
