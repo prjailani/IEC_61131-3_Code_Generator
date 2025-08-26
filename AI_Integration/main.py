@@ -37,52 +37,168 @@ embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-
 vectorstore = FAISS.from_texts(docs, embedding=embeddings)
 retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
-# ---- 4. Build QA chain with JSON output ----
-template = """You are an IEC 61131 Structured Text to JSON translator.
-Use the following context from reference docs:
-{context}
+def generate_IEC_JSON(user_query):
+    # ---- 4. Build QA chain with JSON output ----
+      template = """You are an IEC 61131 Structured Text to JSON translator.
+      Use the following context from reference docs:
+      {context}
 
-User request: {question}
+      User request: {question}
 
-Return only a valid JSON object that follows this schema:
-{{
-  "program": {{
-    "name": "<string>",
+      Return only a valid JSON object that follows this schema:
+      {{
+        "program": {{
+          "name": "<string>",
+          "declarations": [
+            {{ "type": "VAR", "name": "<string>", "datatype": "<string>" }}
+          ],
+          "statements": [
+            {{
+              "type": "if",
+              "condition": "<condition-expression>",
+              "then": [
+                {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
+              ],
+              "else": [
+                {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
+              ]
+            }}
+          ]
+        }}
+      }}
+
+      ⚠️ Important: 
+      - Always output **pure JSON**, nothing else.
+      - Keys must be exactly: "program", "name", "declarations", "statements", "type", "condition", "then", "else", "target", "expression", "datatype".
+      - Do not explain the code, just return JSON.
+      """
+
+      prompt = ChatPromptTemplate.from_template(template)
+
+      qa_chain = RetrievalQA.from_chain_type(
+          llm=llm,
+          retriever=retriever,
+          chain_type_kwargs={"prompt": prompt},
+      )
+
+      query = "Generate logic: "+user_query
+      result = qa_chain.invoke({"query": query})
+
+      print("Generated JSON:\n", result["result"])
+
+
+
+
+
+def regenerate_IEC_JSON(user_query,  issue , generated_code) :
+    # ---- 4. Build QA chain with JSON output ----
+      template = """
+      You are an IEC 61131 Structured Text to JSON translator. .Bug Fixer
+      Here you work in the  already generated code  but there is some issues araised  you need to fix and return same  new version of JSON code 
+      Use the following context from reference docs:
+      {context}
+
+      User request: {question}
+
+      Already Generated code   : " generated_code  "
+
+      Return only a valid JSON object that follows this schema:
+      {{
+        "program": {{
+          "name": "<string>",
+          "declarations": [
+            {{ "type": "VAR", "name": "<string>", "datatype": "<string>" }}
+          ],
+          "statements": [
+            {{
+              "type": "if",
+              "condition": "<condition-expression>",
+              "then": [
+                {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
+              ],
+              "else": [
+                {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
+              ]
+            }}
+          ]
+        }}
+      }}
+
+      ⚠️ Important: 
+      - Always output **pure JSON**, nothing else.
+      - Keys must be exactly: "program", "name", "declarations", "statements", "type", "condition", "then", "else", "target", "expression", "datatype".
+      - Do not explain the code, just return JSON. correct the  same json code without any error/ issues. fix that bug
+      """
+
+      prompt = ChatPromptTemplate.from_template(template)
+
+      qa_chain = RetrievalQA.from_chain_type(
+          llm=llm,
+          retriever=retriever,
+          chain_type_kwargs={"prompt": prompt},
+      )
+
+      query = "previous user query: "+user_query+"\n\n issue in exiting code : "+ issue  +" \n\n Already Generated_code : \n"+ generated_code
+      result = qa_chain.invoke({"query": query})
+
+      print("Generated JSON:\n", result["result"])
+
+
+
+
+
+
+#==================================================================================================================
+
+#                                         testing Area 
+
+#==================================================================================================================
+
+user =  input(" (-_-) Ask What you need  >>> ")
+
+
+# user_query =  input("Ask  : ")
+user_query= "add two numbers"
+generated_code =  """
+[{
+  "function": {
+    "name": "AddNubers", 
+    "returnType": "INT",
+    "inputs": [
+      { "name": "a", "datatype": "INT" },
+      { "name": "b", "datatype": "INT" }
+    ],
+    "body": [
+      { "type": "return", "expression": "a+b" }
+    ]
+  }
+}
+,
+{
+  "program": {
+    "name": "FunctionCallExample",
     "declarations": [
-      {{ "type": "VAR", "name": "<string>", "datatype": "<string>" }}
+      { "type": "VAR", "name": "a", "datatype": "INT" },
+      { "type": "VAR", "name": "b", "datatype": "INT" },
+      { "type": "VAR", "name": "result", "datatype": "INT" }
     ],
     "statements": [
-      {{
-        "type": "if",
-        "condition": "<condition-expression>",
-        "then": [
-          {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
-        ],
-        "else": [
-          {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
-        ]
-      }}
+      {
+        "type": "functionCall",
+        "name": "AddNumbers",
+        "arguments": ["a", "b"]
+      },
+      {
+        "type": "assignment",
+        "target": "result",
+        "expression": "AddNumbers(a, b)"
+      }
     ]
-  }}
-}}
+  }
+}]
 
-⚠️ Important: 
-- Always output **pure JSON**, nothing else.
-- Keys must be exactly: "program", "name", "declarations", "statements", "type", "condition", "then", "else", "target", "expression", "datatype".
-- Do not explain the code, just return JSON.
 """
+issue = "error : Function 'AddNumbers' not defined"
 
-prompt = ChatPromptTemplate.from_template(template)
+regenerate_IEC_JSON(user_query ,issue,generated_code)
 
-qa_chain = RetrievalQA.from_chain_type(
-    llm=llm,
-    retriever=retriever,
-    chain_type_kwargs={"prompt": prompt},
-)
-
-# ---- 5. Run example query ----
-user_query =  input("Ask  : ")
-query = "Generate logic: "+user_query
-result = qa_chain.invoke({"query": query})
-
-print("Generated JSON:\n", result["result"])
