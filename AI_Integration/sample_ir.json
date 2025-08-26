@@ -1,0 +1,37 @@
+{
+  "program": {
+    "name": "IfSimple",
+    "declarations": [
+      {
+        "type": "VAR",
+        "name": "temperature",
+        "datatype": "REAL"
+      },
+      {
+        "type": "VAR",
+        "name": "fan",
+        "datatype": "BOOL"
+      }
+    ],
+    "statements": [
+      {
+        "type": "if",
+        "condition": "temperature > 30.0",
+        "then": [
+          {
+            "type": "assignment",
+            "target": "fan",
+            "expression": "TRUE"
+          }
+        ],
+        "else": [
+          {
+            "type": "assignment",
+            "target": "fan",
+            "expression": "FALSE"
+          }
+        ]
+      }
+    ]
+  }
+}
