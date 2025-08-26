@@ -1,0 +1,39 @@
+Details componets :
+variables declered as 
+[
+
+ [BedRoom_Fan : {
+    details  {
+        operation_type : on/off  [bool]
+    }
+        speed  range : 100 - 120v
+    }
+ }]
+
+ 
+ [kitchen_Fan : {
+    details  {
+        operation_type : on/off  [bool]
+    }
+        speed  range : 10 - 12v
+    }
+ }]
+
+
+
+[BedRoom_Light : {
+    details  {
+        operation_type : on/off [bool]
+    }
+ }]
+ [kitchen_Light : {
+    details  {
+        operation_type : on/off  [bool]
+    }
+      
+    }
+ }]
+
+
+
+]

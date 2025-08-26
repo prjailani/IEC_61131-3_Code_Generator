@@ -1,0 +1,214 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IEC 61131 JSON IR",
+  "type": "object",
+  "properties": {
+    "program": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "declarations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "VAR",
+                  "VAR_INPUT",
+                  "VAR_OUTPUT",
+                  "VAR_IN_OUT",
+                  "VAR_TEMP"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "datatype": {
+                "type": "string"
+              },
+              "initialValue": {}
+            },
+            "required": [
+              "type",
+              "name",
+              "datatype"
+            ]
+          }
+        },
+        "statements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Statement"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "declarations",
+        "statements"
+      ]
+    },
+    "functionBlock": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/VarDecl"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/VarDecl"
+          }
+        },
+        "locals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/VarDecl"
+          }
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Statement"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "inputs",
+        "outputs",
+        "locals",
+        "body"
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "required": [
+        "program"
+      ]
+    },
+    {
+      "required": [
+        "functionBlock"
+      ]
+    }
+  ],
+  "definitions": {
+    "VarDecl": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "datatype": {
+          "type": "string"
+        },
+        "initialValue": {}
+      },
+      "required": [
+        "name",
+        "datatype"
+      ]
+    },
+    "Statement": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "assignment",
+            "if",
+            "case",
+            "for",
+            "while",
+            "repeat",
+            "functionCall",
+            "fbCall"
+          ]
+        },
+        "target": {
+          "type": "string"
+        },
+        "expression": {
+          "type": "string"
+        },
+        "condition": {
+          "type": "string"
+        },
+        "then": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Statement"
+          }
+        },
+        "else": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Statement"
+          }
+        },
+        "selector": {
+          "type": "string"
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": {},
+              "statements": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/Statement"
+                }
+              }
+            },
+            "required": [
+              "value",
+              "statements"
+            ]
+          }
+        },
+        "iterator": {
+          "type": "string"
+        },
+        "from": {},
+        "to": {},
+        "by": {},
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Statement"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "arguments": {
+          "type": "array",
+          "items": {}
+        },
+        "inputs": {
+          "type": "object"
+        },
+        "outputs": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "type"
+      ]
+    }
+  }
+}
