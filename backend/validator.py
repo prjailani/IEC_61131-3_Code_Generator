@@ -716,4 +716,4 @@ def validator(intermediate: List[Dict[str, Any]]) -> Tuple[bool, str]:
                 ok, msg = stmtChecker(s, scope, functions, fb_defs, var_types)
                 if not ok: return False, msg
 
-    return True, "Build Success ✅ " 
+    return True, "Build Success ✅" 
