@@ -18,13 +18,12 @@ export default function Users({ onGoBack }) {
     "TSEND", "TRCV", "TCON", "TDISCON", "READ_VAR", "WRITE_VAR"
   ];
   
-  // State to hold the list of variables defined by the user.
-  const [variables, setVariables] = React.useState([
+  const [variables, setVariables] = useState([
     { id: Date.now().toString(), deviceName: '', dataType: allDataTypes[0], range: '' }
   ]);
-  const [isSaving, setIsSaving] = React.useState(false);
-  const [error, setError] = React.useState(null);
-  const [successMessage, setSuccessMessage] = React.useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Function to add a new empty row to the form.
   const addVariableRow = () => {
@@ -47,14 +46,12 @@ export default function Users({ onGoBack }) {
     setVariables(variables.filter(variable => variable.id !== id));
   };
 
-  // Handle saving the variable data to a backend endpoint.
   const handleSaveVariables = async () => {
     setIsSaving(true);
     setError(null);
     setSuccessMessage('');
 
     try {
-      // Filter out any rows with empty device names.
       const variablesToSave = variables.filter(v => v.deviceName.trim() !== '');
 
       if (variablesToSave.length === 0) {
@@ -63,7 +60,6 @@ export default function Users({ onGoBack }) {
         return;
       }
 
-      // The endpoint your friend's backend will need to create.
       const response = await fetch('http://127.0.0.1:8000/save-variables', {
         method: 'POST',
         headers: {
@@ -89,16 +85,14 @@ export default function Users({ onGoBack }) {
   return (
     <div className="app-container">
       <div className="card">
-        {/* START: NAVIGATION BUTTONS MOVED INSIDE CARD */}
         <div className="switch-container">
-          <button onClick={() => {}} className="switch-button" disabled>
-            Go to Config Page
-          </button>
           <button onClick={onGoBack} className="switch-button">
             Go to Main Page
           </button>
+          <button className="switch-button" disabled>
+            Go to Users Page
+          </button>
         </div>
-        {/* END: NAVIGATION BUTTONS MOVED INSIDE CARD */}
         
         <h1 className="title">Define Device Variables</h1>
         <p className="description">
@@ -168,122 +162,6 @@ export default function Users({ onGoBack }) {
           </div>
         )}
       </div>
-      <style>{`
-        /* START: STYLES FOR NAVIGATION BUTTONS */
-        .switch-container {
-            display: flex;
-            justify-content: flex-end;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .switch-button {
-            padding: 0.6rem 1.2rem;
-            background-color: transparent;
-            color: #f9fbfeff; /* Muted text color */
-            font-weight: 600;
-            border-radius: 0.5rem;
-            border: 1px solid #4b5563; /* Gray border */
-            cursor: pointer;
-            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-        }
-
-        .switch-button:hover:not(.active) {
-            background-color: #374151; /* Darker gray on hover */
-            color: #e5e7eb;
-        }
-        
-        .switch-button.active {
-            color: #e5e7eb; /* Brighter text for active */
-            border-color: #6b7280; /* Slightly lighter border for active */
-            cursor: default;
-        }
-        /* END: STYLES FOR NAVIGATION BUTTONS */
-
-        .variable-row {
-          display: grid;
-          grid-template-columns: 2fr 1.5fr 1.5fr 0.5fr;
-          gap: 1rem;
-          margin-bottom: 1rem;
-          align-items: center;
-        }
-
-        .text-input-small, .select-input {
-          padding: 0.75rem;
-          font-size: 1rem;
-          color: #e5e7eb;
-          background-color: #374151;
-          border: 1px solid #4b5563;
-          border-radius: 0.5rem;
-          box-sizing: border-box;
-          width: 100%;
-        }
-        
-        .select-input {
-          cursor: pointer;
-        }
-
-        .text-input-small:focus, .select-input:focus {
-          outline: 2px solid #2dd4bf;
-          border-color: #2dd4bf;
-        }
-        
-        .button-container-small {
-          display: flex;
-          justify-content: center;
-          margin-top: 1rem;
-        }
-
-        .add-button {
-          padding: 0.5rem 1rem;
-          background-color: #4b5563;
-          color: #fff;
-          font-weight: 700;
-          border-radius: 0.5rem;
-          border: none;
-          cursor: pointer;
-          transition: background-color 0.3s ease;
-        }
-
-        .add-button:hover {
-          background-color: #6b7280;
-        }
-        
-        .remove-button {
-          padding: 0.5rem 1rem;
-          background-color: #ef4444;
-          color: #fff;
-          font-weight: 700;
-          border-radius: 0.5rem;
-          border: none;
-          cursor: pointer;
-          transition: background-color 0.3s ease;
-        }
-        
-        .remove-button:hover {
-          background-color: #dc2626;
-        }
-        
-        .no-variables-message {
-          text-align: center;
-          color: #9ca3af;
-          font-style: italic;
-        }
-
-        .success-message {
-          text-align: center;
-          color: #10b981;
-          margin-top: 1rem;
-          font-weight: 600;
-        }
-
-        .user-id {
-          font-weight: 600;
-          color: #2dd4bf;
-          word-break: break-all;
-        }
-      `}
-      </style>
     </div>
   );
 }
