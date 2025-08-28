@@ -26,7 +26,9 @@ def load_docs_from_path(folder_path: str):
     return docs
 
 # Example: put your knowledge docs in ./kb/
-folder_path = "./kb"
+
+script_directory = os.path.dirname(__file__)
+folder_path = os.path.join(script_directory, "kb")
 docs = load_docs_from_path(folder_path)
 
 if not docs:
@@ -46,7 +48,7 @@ def generate_IEC_JSON(user_query):
       User request: {question}
 
       Return only a valid JSON object that follows this schema:
-      {{
+      [{{
         "program": {{
           "name": "<string>",
           "declarations": [
@@ -66,11 +68,13 @@ def generate_IEC_JSON(user_query):
           ]
         }}
       }}
+      ]
 
       ⚠️ Important: 
       - Always output **pure JSON**, nothing else.
       - Keys must be exactly: "program", "name", "declarations", "statements", "type", "condition", "then", "else", "target", "expression", "datatype".
       - Do not explain the code, just return JSON.
+      - When multiple programs are needed, return an list of program objects enclosed in [].
       """
 
       prompt = ChatPromptTemplate.from_template(template)
@@ -84,7 +88,7 @@ def generate_IEC_JSON(user_query):
       query = "Generate logic: "+user_query
       result = qa_chain.invoke({"query": query})
 
-      print("Generated JSON:\n", result["result"])
+      return result["result"]
 
 
 
@@ -103,7 +107,7 @@ def regenerate_IEC_JSON(user_query,  issue , generated_code) :
       Already Generated code   : " generated_code  "
 
       Return only a valid JSON object that follows this schema:
-      {{
+      [{{
         "program": {{
           "name": "<string>",
           "declarations": [
@@ -122,12 +126,13 @@ def regenerate_IEC_JSON(user_query,  issue , generated_code) :
             }}
           ]
         }}
-      }}
+      }}]
 
       ⚠️ Important: 
       - Always output **pure JSON**, nothing else.
       - Keys must be exactly: "program", "name", "declarations", "statements", "type", "condition", "then", "else", "target", "expression", "datatype".
       - Do not explain the code, just return JSON. correct the  same json code without any error/ issues. fix that bug
+      - When multiple programs are needed, return an list of program objects enclosed in [].
       """
 
       prompt = ChatPromptTemplate.from_template(template)
@@ -141,7 +146,8 @@ def regenerate_IEC_JSON(user_query,  issue , generated_code) :
       query = "previous user query: "+user_query+"\n\n issue in exiting code : "+ issue  +" \n\n Already Generated_code : \n"+ generated_code
       result = qa_chain.invoke({"query": query})
 
-      print("Generated JSON:\n", result["result"])
+      # print("Generated JSON:\n", result["result"])
+      return result["result"]
 
 
 
@@ -154,51 +160,52 @@ def regenerate_IEC_JSON(user_query,  issue , generated_code) :
 
 #==================================================================================================================
 
-user =  input(" (-_-) Ask What you need  >>> ")
+# user =  input(" (-_-) Ask What you need  >>> ")
 
 
 # user_query =  input("Ask  : ")
-user_query= "add two numbers"
-generated_code =  """
-[{
-  "function": {
-    "name": "AddNubers", 
-    "returnType": "INT",
-    "inputs": [
-      { "name": "a", "datatype": "INT" },
-      { "name": "b", "datatype": "INT" }
-    ],
-    "body": [
-      { "type": "return", "expression": "a+b" }
-    ]
-  }
-}
-,
-{
-  "program": {
-    "name": "FunctionCallExample",
-    "declarations": [
-      { "type": "VAR", "name": "a", "datatype": "INT" },
-      { "type": "VAR", "name": "b", "datatype": "INT" },
-      { "type": "VAR", "name": "result", "datatype": "INT" }
-    ],
-    "statements": [
-      {
-        "type": "functionCall",
-        "name": "AddNumbers",
-        "arguments": ["a", "b"]
-      },
-      {
-        "type": "assignment",
-        "target": "result",
-        "expression": "AddNumbers(a, b)"
-      }
-    ]
-  }
-}]
+# user_query= "add two numbers"
+# generated_code =  """
+# [{
+#   "function": {
+#     "name": "AddNubers", 
+#     "returnType": "INT",
+#     "inputs": [
+#       { "name": "a", "datatype": "INT" },
+#       { "name": "b", "datatype": "INT" }
+#     ],
+#     "body": [
+#       { "type": "return", "expression": "a+b" }
+#     ]
+#   }
+# }
+# ,
+# {
+#   "program": {
+#     "name": "FunctionCallExample",
+#     "declarations": [
+#       { "type": "VAR", "name": "a", "datatype": "INT" },
+#       { "type": "VAR", "name": "b", "datatype": "INT" },
+#       { "type": "VAR", "name": "result", "datatype": "INT" }
+#     ],
+#     "statements": [
+#       {
+#         "type": "functionCall",
+#         "name": "AddNumbers",
+#         "arguments": ["a", "b"]
+#       },
+#       {
+#         "type": "assignment",
+#         "target": "result",
+#         "expression": "AddNumbers(a, b)"
+#       }
+#     ]
+#   }
+# }]
 
-"""
-issue = "error : Function 'AddNumbers' not defined"
+# """
+# issue = "error : Function 'AddNumbers' not defined"
 
-regenerate_IEC_JSON(user_query ,issue,generated_code)
+# # regenerate_IEC_JSON(user_query ,issue,generated_code)
 
+# generate_IEC_JSON( user_query)

@@ -2,6 +2,15 @@ from fastapi import FastAPI, Body, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import random
+import sys
+import os
+import json
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+
+from AI_Integration.main import generate_IEC_JSON, regenerate_IEC_JSON
+from validator import validator
+from generator import generator
 import os
 import json
 from pymongo import MongoClient
@@ -47,6 +56,17 @@ class SaveVariablesRequest(BaseModel):
     variables: list[Variable]
 
 @app.post("/generate-code")
+def generateCode(body:NarrativeRequest):
+    intermediate = generate_IEC_JSON(body.narrative)
+    response = validator(json.loads(intermediate))
+
+    while(response[0] == False):
+        intermediate = regenerate_IEC_JSON(body.narrative ,response[1],intermediate)
+        response = validator(json.loads(intermediate))
+    
+    code = generator(json.loads(intermediate))
+    
+    return {"status":"ok","code":code}
 def generateCode(body: NarrativeRequest):
     print(body.narrative)
     messages = [

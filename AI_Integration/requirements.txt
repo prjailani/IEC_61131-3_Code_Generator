@@ -6,5 +6,5 @@ langchain-huggingface
 faiss-cpu
 tiktoken
 jsonschema
-
 dotenv
+sentence-transformers
