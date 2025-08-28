@@ -314,32 +314,3 @@ def validator(intermediate: List[Dict[str, Any]]) -> Tuple[bool, str]:
                     if not ok: return False, msg
 
     return True, "Build Success ✅"
-
-
-intermediate = [{
-  "program": {
-    "name": "FanSpeedLogic",
-    "declarations": [
-      { "type": "VAR", "name": "FanSpeed", "datatype": "INT" },
-      { "type": "VAR", "name": "BulbStatus", "datatype": "BOOL" }
-    ],
-    "statements": [
-      {
-        "type": "if",
-        "condition": "FanSpeed < 200",
-        "then": [
-          { "type": "assignment", "target": "BulbStatus", "expression": "TRUE" }
-        ],
-        "else": [
-          { "type": "assignment", "target": "BulbStatus", "expression": "FALSE" }
-        ]
-  }
-]
-}
-}
-]
-
-
-
-build_status = validator(intermediate)
-print(build_status[1])

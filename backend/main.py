@@ -1,8 +1,16 @@
 from fastapi import FastAPI, Body
 from fastapi.middleware.cors import CORSMiddleware
-from settings import settings
 from pydantic import BaseModel
 import random
+import sys
+import os
+import json
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+
+from AI_Integration.main import generate_IEC_JSON, regenerate_IEC_JSON
+from validator import validator
+from generator import generator
 
 app = FastAPI()
 app.add_middleware(
@@ -20,18 +28,15 @@ class NarrativeRequest(BaseModel):
     narrative: str
 
 
-def validator(intermediate):
-    return True
-
 @app.post("/generate-code")
 def generateCode(body:NarrativeRequest):
-    #params = {"key" :settings.key,q:message }
-    # requests.request(setting.api_link, params = params)   
-    
+    intermediate = generate_IEC_JSON(body.narrative)
+    response = validator(json.loads(intermediate))
 
+    while(response[0] == False):
+        intermediate = regenerate_IEC_JSON(body.narrative ,response[1],intermediate)
+        response = validator(json.loads(intermediate))
     
-    print(body.narrative)
-    messages = ["Structured Text naale Namma Dhan","Naa dhan da Leo...Leo doss...",
-                "Nee enna thetre la enna padam vena ottu, aana rohini nu varappo thala dhan..!!!"
-                ,"Sooriyan kitta kooda modhalam, Aana Coolie kitta modhave koodadhu","Trump phone panni Coolie ku rohini fdfs ticket irukkuma nu kekkuran","Narikki puduven","Anandh uh... ","Dummy Baava"]
-    return {"status":"ok","code":random.choice(messages)}
+    code = generator(json.loads(intermediate))
+    
+    return {"status":"ok","code":code}
