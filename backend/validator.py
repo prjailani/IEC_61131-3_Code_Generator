@@ -164,7 +164,7 @@ def literal_type(tok: str) -> Optional[str]:
     if RE_REAL.fullmatch(s):
         return "REAL"
     if RE_STR.fullmatch(s):
-        # Choose STRING for both '\'...\'' and "..."
+        # Choose STRING for both '\'...\'' and "..."`
         return "STRING"
     if RE_TIME.fullmatch(s):
         return "TIME"
@@ -179,12 +179,12 @@ def literal_type(tok: str) -> Optional[str]:
 # ====================== Expression Parsing / Typing ======================
 
 # Operators by precedence (low to high split)
-LOGICAL_OR = [" OR "]
-LOGICAL_AND = [" AND "]
-COMPARE_OPS = ["<=", ">=", "<>", "=", "<", ">"]
+LOGICAL_OR = ["OR"]
+LOGICAL_AND = ["AND"]
+COMPARE_OPS = ["<=", ">=", "==", "!=", "<>", "<", ">"]
 ADD_OPS = ["+", "-"]
 MUL_OPS = ["*", "/"]
-UNARY_OPS = ["NOT", "+", "-"]
+UNARY_OPS = ["NOT", "+", "-"]  # (kept for reference, handling is token-aware below)
 
 
 def strip_parens(expr: str) -> str:
@@ -205,12 +205,28 @@ def strip_parens(expr: str) -> str:
 
 
 def split_top(expr: str, ops: List[str]) -> Optional[Tuple[str, str, str]]:
-    """Split expr at the rightmost top-level operator among ops.
+    """Split expr at the rightmost top-level operator among ops (token-aware).
     Returns (left, op, right) or None.
     """
     e = expr
     depth_p = depth_b = 0
     i = len(e) - 1
+
+    def is_boundary(idx: int, length: int) -> bool:
+        # Ensure operator at [idx-length+1:idx+1] has token boundaries
+        start = idx - length + 1
+        before = e[start-1] if start-1 >= 0 else ""
+        after = e[idx+1] if idx+1 < len(e) else ""
+        def is_id_char(ch: str) -> bool:
+            return ch.isalnum() or ch == "_"
+        # before should not be identifier char
+        if is_id_char(before):
+            return False
+        # after should not be identifier char
+        if is_id_char(after):
+            return False
+        return True
+
     while i >= 0:
         ch = e[i]
         if ch == ')': depth_p += 1; i -= 1; continue
@@ -220,8 +236,10 @@ def split_top(expr: str, ops: List[str]) -> Optional[Tuple[str, str, str]]:
         if depth_p == 0 and depth_b == 0:
             # try multi-char ops first by longest first
             for op in sorted(ops, key=len, reverse=True):
-                if i - len(op) + 1 >= 0 and e[i-len(op)+1:i+1].upper() == op:
-                    left = e[:i-len(op)+1].strip()
+                L = len(op)
+                start = i - L + 1
+                if start >= 0 and e[start:i+1].upper() == op and is_boundary(i, L):
+                    left = e[:start].strip()
                     right = e[i+1:].strip()
                     return left, op.strip(), right
         i -= 1
@@ -274,7 +292,8 @@ def type_assignable(expected: str, actual: str) -> bool:
     A = uc(normalize_string_family(actual))
 
     # ANY* generics accept anything
-    if E in {"ANY","ANY_DERIVED","ANY_ELEMENTARY","ANY_MAGNITUDE","ANY_NUM","ANY_REAL","ANY_INT","ANY_BIT","ANY_STRING","ANY_DATE"}:
+    if E in {"ANY","ANY_DERIVED","ANY_ELEMENTARY","ANY_MAGNITUDE",
+             "ANY_NUM","ANY_REAL","ANY_INT","ANY_BIT","ANY_STRING","ANY_DATE"}:
         return True
 
     # Exact or same family rules
@@ -289,7 +308,7 @@ def type_assignable(expected: str, actual: str) -> bool:
     if E in REAL_FAMILY and (A in REAL_FAMILY or A in INT_FAMILY):
         return True
 
-    # STRING[n] compatible with STRING
+    # STRING[n] compatible with STRING/WSTRING family
     if is_string_type(expected) and family_of(actual) == "STRING":
         return True
 
@@ -362,12 +381,14 @@ def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, D
             uop = op.upper()
             if uop in ("OR", "AND"):
                 return "BOOL" if (lt == "BOOL" and rt == "BOOL") else None
-            if uop in ("<=", ">=", "<>", "=", "<", ">"):
+            if uop in ("<=", ">=", "==", "!=", "<>", "<", ">"):
                 # comparisons
-                # numeric compare or string-equality or bool-equality allowed
+                # numeric compare or string-equality or bool-equality or time/date types
                 if (is_numeric(lt) and is_numeric(rt)):
                     return "BOOL"
-                if family_of(lt) == family_of(rt) and family_of(lt) in {"STRING","BOOL","TIME","DATE","TIME_OF_DAY","DATE_AND_TIME","CHAR"}:
+                fam_l = family_of(lt)
+                fam_r = family_of(rt)
+                if fam_l == fam_r and fam_l in {"STRING","BOOL","TIME","DATE","TIME_OF_DAY","DATE_AND_TIME","CHAR"}:
                     return "BOOL"
                 return None
             if uop in ("+", "-", "*", "/"):
@@ -375,25 +396,25 @@ def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, D
                 if is_numeric(lt) and is_numeric(rt):
                     if lt in REAL_FAMILY or rt in REAL_FAMILY or lt == "REAL" or rt == "REAL":
                         return "REAL"
-                    # both integer families -> keep integer
+                    # both integer families -> keep integer family
                     return "INT"
                 # string concatenation
                 if uop == "+" and family_of(lt) == family_of(rt) == "STRING":
                     return "STRING"
                 return None
 
-    # unary NOT / +/-
-    ue = e
-    for u in ("NOT", "+", "-"):
-        if ue.upper().startswith(u + " "):
-            rest = ue[len(u):].strip()
-            t = infer_expr_type(rest, var_types, functions)
-            if t is None:
-                return None
-            if u == "NOT":
-                return "BOOL" if t == "BOOL" else None
-            # +/- numeric only
-            return t if is_numeric(t) else None
+    # unary NOT / +/- (token-aware)
+    # Handle NOT first (as a keyword)
+    m_not = re.match(r"^(?i:NOT)\b(.*)$", e)
+    if m_not:
+        rest = m_not.group(1).strip()
+        t = infer_expr_type(rest, var_types, functions)
+        return "BOOL" if t == "BOOL" else None
+    # Handle leading + or - as unary
+    if e.startswith("+") or e.startswith("-"):
+        rest = e[1:].strip()
+        t = infer_expr_type(rest, var_types, functions)
+        return t if (t is not None and is_numeric(t)) else None
 
     # function call in expression: name(args)
     mfunc = re.match(rf"^({IDENT})\((.*)\)$", e)
@@ -473,7 +494,6 @@ def stmtChecker(stmt: dict,
         return True, ""
 
     if typ == "case":
-        # selector can be INT-family, BOOL, STRING, etc. We'll just ensure it is typable
         sel_t = infer_expr_type(stmt.get("selector", ""), var_types, functions)
         if sel_t is None:
             return False, "Case selector has unknown type"
@@ -691,7 +711,9 @@ def validator(intermediate: List[Dict[str, Any]]) -> Tuple[bool, str]:
                     ok, msg = validate_datatype(item["datatype"], known_types)
                     if not ok:
                         return False, f"FunctionBlock '{fb['name']}' {label} '{item['name']}': {msg}"
-            scope = set([*(n for n in fb_defs[fb["name"]]["inputs"]), *(n for n in fb_defs[fb["name"]]["outputs"]), *(n for n in fb_defs[fb["name"]]["locals"])])
+            scope = set([*(n for n in fb_defs[fb["name"]]["inputs"]),
+                         *(n for n in fb_defs[fb["name"]]["outputs"]),
+                         *(n for n in fb_defs[fb["name"]]["locals"])])
             var_types = {}
             for arr in ("inputs","outputs","locals"):
                 for item in fb.get(arr, []):
@@ -716,4 +738,4 @@ def validator(intermediate: List[Dict[str, Any]]) -> Tuple[bool, str]:
                 ok, msg = stmtChecker(s, scope, functions, fb_defs, var_types)
                 if not ok: return False, msg
 
-    return True, "Build Success ✅ " 
+    return True, "Build Success ✅"
