@@ -8,3 +8,10 @@ tiktoken
 jsonschema
 dotenv
 sentence-transformers
+pymongo
+fastapi
+pydantic
+uvicorn
+python-dotenv
+requests
+python-multipart

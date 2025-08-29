@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './index.css';
+import LadderDiagram from './ladder_logic.jsx';
 import Users from './users.jsx';
 
 export default function App() {
@@ -24,7 +25,6 @@ export default function App() {
   console.log("Copied the text: " + copyText[0].textContent);
 }
   const handleGenerateCode = async () => {
-    // Clear previous results and errors.
     setGeneratedCode('');
     setError(null);
     setIsLoading(true);
@@ -32,14 +32,13 @@ export default function App() {
     try {
       const response = await fetch('http://127.0.0.1:8000/generate-code', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ narrative: narrativeText }),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`HTTP error ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
@@ -47,55 +46,51 @@ export default function App() {
       if (data.code) {
         setGeneratedCode(data.code);
       } else {
-        setError('API response did not contain "code" key.');
+        setError('API response was successful but did not contain the expected "code" data.');
       }
     } catch (e) {
-      setError(`Failed to fetch: ${e.message}. Please check your backend server.`);
+      setError(`Failed to generate code: ${e.message}. Please ensure the backend server is running and accessible.`);
       console.error('There was a problem with the fetch operation:', e);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Conditional rendering to switch between pages
   if (currentPage === 'users') {
     return <Users onGoBack={() => setCurrentPage('main')} />;
   }
 
   return (
     <div className="app-container">
+        {/* <LadderDiagram /> */}
       <div className="card">
-        {/* Switch interface */}
         <div className="switch-container">
-          <button onClick={() => setCurrentPage('users')} className="switch-button">
-            Go to Config Page
+          <button onClick={() => setCurrentPage('users')} className="btn btn-secondary">
+            Go to Variables
           </button>
-          <button onClick={() => setCurrentPage('main')} className="switch-button" disabled>
+          <button className="btn btn-secondary" disabled>
             Go to Main Page
           </button>
         </div>
 
         <h1 className="title">
-          Narrative to ST Code
+          IEC 61131-3 Code Generator
         </h1>
-        <p className="description">
-          Enter a natural language description below to generate IEC 61131 Structured Text code.
-        </p>
 
-        <div className="input-area">
+        <div>
           <textarea
-            className="text-input"
+            className="input-textarea"
             placeholder="e.g., If the temperature is greater than 100 degrees Celsius, then turn off the heater."
             value={narrativeText}
             onChange={(e) => setNarrativeText(e.target.value)}
           ></textarea>
         </div>
 
-        <div className="button-container">
+        <div className="generate-button-container">
           <button
             onClick={handleGenerateCode}
             disabled={isLoading || !narrativeText.trim()}
-            className="generate-button"
+            className="btn btn-primary btn-generate"
           >
             {isLoading ? 'Generating...' : 'Generate Code'}
           </button>
@@ -104,13 +99,15 @@ export default function App() {
         <div>
           {isLoading && (
             <p className="loading-message">
-              Generating code...
+              Generating code, please wait...
             </p>
           )}
 
+
+
           {error && (
             <div className="error-box">
-              <p className="error-title">Error:</p>
+              <p className="error-title">An Error Occurred</p>
               <p className="error-message">{error}</p>
             </div>
           )}
@@ -127,6 +124,8 @@ export default function App() {
             </>
           )}
         </div>
+      
+
       </div>
     </div>
   );
