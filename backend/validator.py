@@ -145,7 +145,7 @@ def validate_datatype(dt: str, known_types: set) -> Tuple[bool, str]:
 RE_INT = re.compile(r"^[+-]?\d+$")
 RE_REAL = re.compile(r"^[+-]?(?:\d+\.\d*|\d*\.\d+)(?:[eE][+-]?\d+)?$")
 RE_BOOL = re.compile(r"^(TRUE|FALSE)$", re.IGNORECASE)
-RE_STR  = re.compile(r'^(?:\"[^\"\\]*(?:\\.[^\"\\]*)*\"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')$')
+RE_STR  = re.compile(r'^(?:"[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')$')
 RE_TIME = re.compile(r"^(T|TIME)#[A-Za-z0-9_:+-]+$", re.IGNORECASE)
 RE_DATE = re.compile(r"^(D|DATE)#[A-Za-z0-9_:+-]+$", re.IGNORECASE)
 RE_TOD  = re.compile(r"^(TOD|TIME_OF_DAY)#[A-Za-z0-9_:+-]+$", re.IGNORECASE)
@@ -164,7 +164,7 @@ def literal_type(tok: str) -> Optional[str]:
     if RE_REAL.fullmatch(s):
         return "REAL"
     if RE_STR.fullmatch(s):
-        # Choose STRING for both '\'...\'' and "..."`
+        # Choose STRING for both '\'...\'' and "..."
         return "STRING"
     if RE_TIME.fullmatch(s):
         return "TIME"
@@ -252,10 +252,21 @@ def peel_array_once(dt: str) -> Optional[str]:
     return base if ok else None
 
 
-def get_struct_field_type(dt: str, field: str) -> Optional[str]:
-    ok, msg, fields = parse_struct_fields(dt) if is_struct(dt) else (False, "", {})
-    if not ok: return None
-    return fields.get(field)
+def get_struct_field_type(dt: str, field: str, fb_defs: Dict[str, Dict[str, Any]]) -> Optional[str]:
+    # If dt is a STRUCT type, parse its fields
+    if is_struct(dt):
+        ok, msg, fields = parse_struct_fields(dt)
+        if not ok:
+            return None
+        return fields.get(field)
+    # If dt is a user-defined FB type, allow accessing its pins as members
+    if dt in fb_defs:
+        # outputs and inputs are both addressable members
+        if field in fb_defs[dt]["outputs"]:
+            return fb_defs[dt]["outputTypes"].get(field)
+        if field in fb_defs[dt]["inputs"]:
+            return fb_defs[dt]["inputTypes"].get(field)
+    return None
 
 
 def normalize_string_family(dt: str) -> str:
@@ -327,10 +338,8 @@ def type_assignable(expected: str, actual: str) -> bool:
 MEMBER_TOKEN = re.compile(r"(\.[A-Za-z_][A-Za-z0-9_]*)|(\[[^\]]*\])")
 
 
-def resolve_member_type(var_name: str, var_types: Dict[str, str]) -> Optional[str]:
-    """Resolve type of an expression like matrix[i][j] or Sensor.Value.
-    Starts with declared base type and peels arrays/fields accordingly.
-    """
+def resolve_member_type(var_name: str, var_types: Dict[str, str], fb_defs: Dict[str, Dict[str, Any]]) -> Optional[str]:
+   
     s = var_name.strip()
     m0 = re.match(rf"^({IDENT})", s)
     if not m0:
@@ -351,7 +360,8 @@ def resolve_member_type(var_name: str, var_types: Dict[str, str]) -> Optional[st
             t = elem
         elif token.startswith("."):
             field = token[1:]
-            ftype = get_struct_field_type(t, field)
+            # If current type is an FB instance type, allow pin access
+            ftype = get_struct_field_type(t, field, fb_defs)
             if not ftype:
                 return None
             t = ftype
@@ -359,7 +369,7 @@ def resolve_member_type(var_name: str, var_types: Dict[str, str]) -> Optional[st
 
 # ---------------- Expression Type Inference ----------------
 
-def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, Dict[str, Any]]) -> Optional[str]:
+def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, Dict[str, Any]], fb_defs: Dict[str, Dict[str, Any]]) -> Optional[str]:
     e = strip_parens(expr)
     if not e:
         return None
@@ -374,8 +384,8 @@ def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, D
         sp = split_top(e, ops)
         if sp:
             L, op, R = sp
-            lt = infer_expr_type(L, var_types, functions)
-            rt = infer_expr_type(R, var_types, functions)
+            lt = infer_expr_type(L, var_types, functions, fb_defs)
+            rt = infer_expr_type(R, var_types, functions, fb_defs)
             if lt is None or rt is None:
                 return None
             uop = op.upper()
@@ -407,12 +417,12 @@ def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, D
     m_not = re.match(r"^(?i:NOT)\b(.*)$", e)
     if m_not:
         rest = m_not.group(1).strip()
-        t = infer_expr_type(rest, var_types, functions)
+        t = infer_expr_type(rest, var_types, functions, fb_defs)
         return "BOOL" if t == "BOOL" else None
     # Handle leading + or - as unary
     if e.startswith("+") or e.startswith("-"):
         rest = e[1:].strip()
-        t = infer_expr_type(rest, var_types, functions)
+        t = infer_expr_type(rest, var_types, functions, fb_defs)
         return t if (t is not None and is_numeric(t)) else None
 
     # function call in expression: name(args)
@@ -427,7 +437,7 @@ def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, D
     # variable/member reference
     mvar = re.match(rf"^{IDENT}(?:\[[^\]]*\]|\.[A-Za-z_][A-Za-z0-9_]*)*\s*$", e)
     if mvar:
-        t = resolve_member_type(e, var_types)
+        t = resolve_member_type(e, var_types, fb_defs)
         # If not resolvable but base exists, return its type
         if t: return t
         base = base_var_name(e)
@@ -452,32 +462,25 @@ def _is_time_family(f: str) -> bool:
     return f in {"TIME","DATE","TIME_OF_DAY","DATE_AND_TIME"}
 
 
-def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dict[str, Dict[str, Any]]) -> Tuple[bool, str]:
-    """Validate that expr is a BOOL, with strict comparison rules:
-       - Comparisons (==, <, >, <=, >=, !=, <>) must yield BOOL.
-       - TIME/DATE/TOD/DT comparisons require both sides to be the same family; if a literal is used, it must be the matching typed literal (e.g., T#... for TIME).
-       - INT comparisons may use integer or real literals (e.g., 10, 18, 18.00).
-       - REAL comparisons allow decimal literals (e.g., 18.0, 0.5) and integers.
-       - STRING comparisons require quoted-string literal when one side is a literal.
-       - Reject mixed-type comparisons like TIME == 18.00.
-    """
+def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dict[str, Dict[str, Any]], fb_defs: Dict[str, Dict[str, Any]]) -> Tuple[bool, str]:
+   
     e = strip_parens(expr)
 
     # Handle OR/AND recursively
     sp = split_top(e, LOGICAL_OR)
     if sp:
         l, _, r = sp
-        ok, msg = validate_condition_expr(l, var_types, functions)
+        ok, msg = validate_condition_expr(l, var_types, functions, fb_defs)
         if not ok: return False, msg
-        ok, msg = validate_condition_expr(r, var_types, functions)
+        ok, msg = validate_condition_expr(r, var_types, functions, fb_defs)
         if not ok: return False, msg
         return True, ""
     sp = split_top(e, LOGICAL_AND)
     if sp:
         l, _, r = sp
-        ok, msg = validate_condition_expr(l, var_types, functions)
+        ok, msg = validate_condition_expr(l, var_types, functions, fb_defs)
         if not ok: return False, msg
-        ok, msg = validate_condition_expr(r, var_types, functions)
+        ok, msg = validate_condition_expr(r, var_types, functions, fb_defs)
         if not ok: return False, msg
         return True, ""
 
@@ -485,8 +488,8 @@ def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dic
     sp = split_top(e, COMPARE_OPS)
     if sp:
         L, op, R = sp
-        lt = infer_expr_type(L, var_types, functions)
-        rt = infer_expr_type(R, var_types, functions)
+        lt = infer_expr_type(L, var_types, functions, fb_defs)
+        rt = infer_expr_type(R, var_types, functions, fb_defs)
         if lt is None or rt is None:
             return False, f"Cannot resolve types in comparison '{L} {op} {R}'"
 
@@ -496,13 +499,13 @@ def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dic
         # TIME/DATE/TOD/DT must match exactly
         if _is_time_family(fam_l) or _is_time_family(fam_r):
             if fam_l != fam_r:
-                # Special hint: TIME compared with non-time literal
-                l_lit = literal_type(strip_parens(R))
-                r_lit = literal_type(strip_parens(L))
-                if fam_l == "TIME" and (l_lit is None or l_lit != "TIME"):
-                    return False, "TIME comparison requires a TIME literal (e.g., T#1S) or TIME-typed expression"
-                if fam_r == "TIME" and (r_lit is None or r_lit != "TIME"):
-                    return False, "TIME comparison requires a TIME literal (e.g., T#1S) or TIME-typed expression"
+                # check if the literal side is correctly typed
+                l_lit = literal_type(strip_parens(L))
+                r_lit = literal_type(strip_parens(R))
+                if _is_time_family(fam_l) and (r_lit is None or r_lit != fam_l):
+                    return False, f"{fam_l} comparison requires a {fam_l} literal (e.g., T#1S) or {fam_l}-typed expression"
+                if _is_time_family(fam_r) and (l_lit is None or l_lit != fam_r):
+                    return False, f"{fam_r} comparison requires a {fam_r} literal (e.g., T#1S) or {fam_r}-typed expression"
                 return False, f"Incompatible types for comparison: {lt} {op} {rt}"
             return True, ""
 
@@ -514,7 +517,6 @@ def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dic
                 return False, "STRING comparison requires a quoted string literal"
             if fam_l == fam_r == "STRING":
                 return True, ""
-            # Comparing STRING with non-string expression
             return False, f"Incompatible types for comparison: {lt} {op} {rt}"
 
         # Numeric (INT/REAL) – allow mixing
@@ -528,16 +530,16 @@ def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dic
         return False, f"Incompatible types for comparison: {lt} {op} {rt}"
 
     # No explicit comparison: ensure whole expr is BOOL
-    t = infer_expr_type(e, var_types, functions)
+    t = infer_expr_type(e, var_types, functions, fb_defs)
     if t == "BOOL":
         return True, ""
     return False, "Condition must be BOOL"
 
 # ---------------- Statement Checker ----------------
 
-def expected_type_from_target(target: str, var_types: Dict[str, str]) -> Optional[str]:
+def expected_type_from_target(target: str, var_types: Dict[str, str], fb_defs: Dict[str, Dict[str, Any]]) -> Optional[str]:
     """Compute the expected type for an assignment target (handles array index and struct fields)."""
-    return resolve_member_type(target, var_types)
+    return resolve_member_type(target, var_types, fb_defs)
 
 
 def stmtChecker(stmt: dict,
@@ -554,13 +556,13 @@ def stmtChecker(stmt: dict,
         base = base_var_name(target)
         if base not in vars_in_scope:
             return False, f"Variable {target} not declared"
-        expected = expected_type_from_target(target, var_types)
+        expected = expected_type_from_target(target, var_types, fb_defs)
         if expected is None:
             return False, f"Cannot resolve target type for '{target}'"
         expr = stmt.get("expression")
         if expr is None:
             return False, "Assignment missing expression"
-        et = infer_expr_type(expr, var_types, functions)
+        et = infer_expr_type(expr, var_types, functions, fb_defs)
         if et is None:
             return False, f"Unresolvable expression type for '{expr}'"
         if not type_assignable(expected, et):
@@ -568,7 +570,7 @@ def stmtChecker(stmt: dict,
         return True, ""
 
     if typ == "if":
-        ok, msg = validate_condition_expr(stmt.get("condition", ""), var_types, functions)
+        ok, msg = validate_condition_expr(stmt.get("condition", ""), var_types, functions, fb_defs)
         if not ok:
             return False, msg
         for s in stmt.get("then", []):
@@ -580,7 +582,7 @@ def stmtChecker(stmt: dict,
         return True, ""
 
     if typ == "case":
-        sel_t = infer_expr_type(stmt.get("selector", ""), var_types, functions)
+        sel_t = infer_expr_type(stmt.get("selector", ""), var_types, functions, fb_defs)
         if sel_t is None:
             return False, "Case selector has unknown type"
         for c in stmt.get("cases", []):
@@ -606,7 +608,7 @@ def stmtChecker(stmt: dict,
         return True, ""
 
     if typ == "while":
-        ok, msg = validate_condition_expr(stmt.get("condition", ""), var_types, functions)
+        ok, msg = validate_condition_expr(stmt.get("condition", ""), var_types, functions, fb_defs)
         if not ok:
             return False, msg
         for s in stmt.get("body", []):
@@ -615,7 +617,7 @@ def stmtChecker(stmt: dict,
         return True, ""
 
     if typ == "repeat":
-        ok, msg = validate_condition_expr(stmt.get("until", ""), var_types, functions)
+        ok, msg = validate_condition_expr(stmt.get("until", ""), var_types, functions, fb_defs)
         if not ok:
             return False, msg
         for s in stmt.get("body", []):
@@ -634,7 +636,7 @@ def stmtChecker(stmt: dict,
         # Type-check args against declared input types when available
         in_types = functions[fname].get("inputTypes", [])
         for a, et in zip(args, in_types):
-            at = infer_expr_type(a, var_types, functions)
+            at = infer_expr_type(a, var_types, functions, fb_defs)
             if at is None:
                 base = base_var_name(a)
                 if base not in var_types and not literal_type(a):
@@ -646,21 +648,29 @@ def stmtChecker(stmt: dict,
 
     if typ == "fbCall":
         inst = stmt.get("name")
-        if inst not in vars_in_scope:
-            return False, f"fbCall instance '{inst}' is not declared"
-        inst_type = var_types.get(inst)
-        U = uc(inst_type)
+        inst_is_var = inst in vars_in_scope
+        if inst_is_var:
+            inst_type = var_types.get(inst)
+            fb_name = inst_type
+        elif inst in fb_defs:
+            fb_name = inst  # direct FB type invocation (no instance variable)
+            inst_type = None
+        else:
+            return False, f"fbCall instance '{inst}' is not declared and no FB type named '{inst}' found"
+
+        U = uc(fb_name) if fb_name else uc(inst_type or "")
+
         # User-defined FB
-        if inst_type in fb_defs:
-            sig = fb_defs[inst_type]
+        if fb_name in fb_defs:
+            sig = fb_defs[fb_name]
             # inputs
             for k, v in stmt.get("inputs", {}).items():
                 if k not in sig["inputs"]:
-                    return False, f"fbCall '{inst}': unknown input '{k}' for FB '{inst_type}'"
+                    return False, f"fbCall '{inst}': unknown input '{k}' for FB '{fb_name}'"
                 # type check if we know input type
                 etype = sig["inputTypes"].get(k)
                 if etype:
-                    at = infer_expr_type(v, var_types, functions)
+                    at = infer_expr_type(v, var_types, functions, fb_defs)
                     if at is None:
                         base = base_var_name(v)
                         if base not in vars_in_scope and not literal_type(v):
@@ -671,27 +681,31 @@ def stmtChecker(stmt: dict,
             # outputs
             for k, v in stmt.get("outputs", {}).items():
                 if k not in sig["outputs"]:
-                    return False, f"fbCall '{inst}': unknown output '{k}' for FB '{inst_type}'"
+                    return False, f"fbCall '{inst}': unknown output '{k}' for FB '{fb_name}'"
                 base = base_var_name(v)
+                # target may be an instance member (e.g., C1.CV) or program var
                 if base not in vars_in_scope:
-                    return False, f"fbCall '{inst}': output '{k}' maps to undeclared '{v}'"
+                    # allow if base equals inst (when inst is a variable and target is inst.member)
+                    if not (inst_is_var and base == inst):
+                        return False, f"fbCall '{inst}': output '{k}' maps to undeclared '{v}'"
                 # type check if we know output type
                 otype = sig["outputTypes"].get(k)
                 if otype:
-                    t_target = resolve_member_type(v, var_types)
+                    t_target = resolve_member_type(v, var_types, fb_defs)
                     if t_target is None:
                         return False, f"fbCall '{inst}': cannot resolve output target '{v}'"
                     if not type_assignable(t_target, otype):
                         return False, f"fbCall '{inst}': output '{k}' of type {otype} not assignable to {t_target}"
             return True, ""
+
         # Built-in FB – if we know pins, enforce
         if U in FB_PIN_TYPES:
             pins = FB_PIN_TYPES[U]
             for k, v in stmt.get("inputs", {}).items():
                 if k not in pins["inputs"]:
-                    return False, f"fbCall '{inst}': unknown input '{k}' for FB '{inst_type}'"
+                    return False, f"fbCall '{inst}': unknown input '{k}' for FB '{inst_type or fb_name}'"
                 etype = pins["inputs"][k]
-                at = infer_expr_type(v, var_types, functions)
+                at = infer_expr_type(v, var_types, functions, fb_defs)
                 if at is None:
                     base = base_var_name(v)
                     if base not in vars_in_scope and not literal_type(v):
@@ -701,12 +715,12 @@ def stmtChecker(stmt: dict,
                         return False, f"fbCall '{inst}': input '{k}' expects {etype}, got {at}"
             for k, v in stmt.get("outputs", {}).items():
                 if k not in pins["outputs"]:
-                    return False, f"fbCall '{inst}': unknown output '{k}' for FB '{inst_type}'"
+                    return False, f"fbCall '{inst}': unknown output '{k}' for FB '{inst_type or fb_name}'"
                 otype = pins["outputs"][k]
                 base = base_var_name(v)
                 if base not in vars_in_scope:
                     return False, f"fbCall '{inst}': output '{k}' maps to undeclared '{v}'"
-                t_target = resolve_member_type(v, var_types)
+                t_target = resolve_member_type(v, var_types, fb_defs)
                 if t_target is None:
                     return False, f"fbCall '{inst}': cannot resolve output target '{v}'"
                 if not type_assignable(t_target, otype):
@@ -782,7 +796,7 @@ def validator(intermediate: List[Dict[str, Any]]) -> Tuple[bool, str]:
             # body
             for s in f.get("body", []):
                 if s.get("type") == "return":
-                    t = infer_expr_type(s.get("expression",""), var_types, functions)
+                    t = infer_expr_type(s.get("expression",""), var_types, functions, fb_defs)
                     if t is None or not type_assignable(f.get("returnType"), t):
                         return False, f"Return type mismatch: expected {f.get('returnType')}, got {t}"
                 else:
