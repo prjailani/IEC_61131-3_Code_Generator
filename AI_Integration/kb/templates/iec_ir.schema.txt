@@ -90,6 +90,35 @@
         "locals",
         "body"
       ]
+    },
+    "function": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "returnType": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/VarDecl"
+          }
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Statement"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "returnType",
+        "inputs",
+        "body"
+      ]
     }
   },
   "oneOf": [
@@ -101,6 +130,11 @@
     {
       "required": [
         "functionBlock"
+      ]
+    },
+    {
+      "required": [
+        "function"
       ]
     }
   ],
@@ -134,7 +168,8 @@
             "while",
             "repeat",
             "functionCall",
-            "fbCall"
+            "fbCall",
+            "return"
           ]
         },
         "target": {
@@ -191,6 +226,9 @@
           "items": {
             "$ref": "#/definitions/Statement"
           }
+        },
+        "until": {
+          "type": "string"
         },
         "name": {
           "type": "string"
