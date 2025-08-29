@@ -9,6 +9,20 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  function copier() {
+  // Get the text field
+  var copyText = document.getElementsByClassName("codeBox");
+
+  // Select the text field
+  // copyText.select();
+  // copyText.setSelectionRange(0, 99999); // For mobile devices
+
+   // Copy the text inside the text field
+  navigator.clipboard.writeText(copyText[0].textContent);
+
+  // Alert the copied text
+  console.log("Copied the text: " + copyText[0].textContent);
+}
   const handleGenerateCode = async () => {
     // Clear previous results and errors.
     setGeneratedCode('');
@@ -101,13 +115,16 @@ export default function App() {
             </div>
           )}
 
-          {generatedCode && (
+          {generatedCode && (<>
+            
             <div className="code-box">
-              <h2 className="code-title">Generated IEC 61131-3 Structured Text</h2>
+              <h2 className="code-title">Generated IEC 61131-3 Structured Text  <button type='button' onClick={copier} className='copy-button'><img src="src\assets\copy.png" alt='Copy Button' width="20px"/></button></h2>
               <pre className="code-block">
-                <code className="code">{generatedCode}</code>
+                <code className="codeBox">{generatedCode}</code>
               </pre>
             </div>
+            
+            </>
           )}
         </div>
       </div>

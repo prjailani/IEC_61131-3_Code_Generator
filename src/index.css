@@ -172,6 +172,17 @@ body {
   cursor: pointer;
 }
 
+.copy-button{
+  padding: 0.25rem 0.75rem;
+  background-image: linear-gradient(to right, #2dd4bf, #06b6d4);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 9999px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease-in-out;
+  border: none;
+  cursor: pointer;
+}
 /* New input area styling */
 .input-area {
   margin-bottom: 1.5rem;
