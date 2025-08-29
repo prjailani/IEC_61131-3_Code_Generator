@@ -382,8 +382,7 @@ def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, D
             if uop in ("OR", "AND"):
                 return "BOOL" if (lt == "BOOL" and rt == "BOOL") else None
             if uop in ("<=", ">=", "==", "!=", "<>", "<", ">"):
-                # comparisons
-                # numeric compare or string-equality or bool-equality or time/date types
+                # comparisons → result must be BOOL when types compatible
                 if (is_numeric(lt) and is_numeric(rt)):
                     return "BOOL"
                 fam_l = family_of(lt)
@@ -447,6 +446,93 @@ def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, D
 
     return None
 
+# ---------------- Condition Validator (comparisons and BOOL rules) ----------------
+
+def _is_time_family(f: str) -> bool:
+    return f in {"TIME","DATE","TIME_OF_DAY","DATE_AND_TIME"}
+
+
+def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dict[str, Dict[str, Any]]) -> Tuple[bool, str]:
+    """Validate that expr is a BOOL, with strict comparison rules:
+       - Comparisons (==, <, >, <=, >=, !=, <>) must yield BOOL.
+       - TIME/DATE/TOD/DT comparisons require both sides to be the same family; if a literal is used, it must be the matching typed literal (e.g., T#... for TIME).
+       - INT comparisons may use integer or real literals (e.g., 10, 18, 18.00).
+       - REAL comparisons allow decimal literals (e.g., 18.0, 0.5) and integers.
+       - STRING comparisons require quoted-string literal when one side is a literal.
+       - Reject mixed-type comparisons like TIME == 18.00.
+    """
+    e = strip_parens(expr)
+
+    # Handle OR/AND recursively
+    sp = split_top(e, LOGICAL_OR)
+    if sp:
+        l, _, r = sp
+        ok, msg = validate_condition_expr(l, var_types, functions)
+        if not ok: return False, msg
+        ok, msg = validate_condition_expr(r, var_types, functions)
+        if not ok: return False, msg
+        return True, ""
+    sp = split_top(e, LOGICAL_AND)
+    if sp:
+        l, _, r = sp
+        ok, msg = validate_condition_expr(l, var_types, functions)
+        if not ok: return False, msg
+        ok, msg = validate_condition_expr(r, var_types, functions)
+        if not ok: return False, msg
+        return True, ""
+
+    # Comparison operators
+    sp = split_top(e, COMPARE_OPS)
+    if sp:
+        L, op, R = sp
+        lt = infer_expr_type(L, var_types, functions)
+        rt = infer_expr_type(R, var_types, functions)
+        if lt is None or rt is None:
+            return False, f"Cannot resolve types in comparison '{L} {op} {R}'"
+
+        fam_l = family_of(lt)
+        fam_r = family_of(rt)
+
+        # TIME/DATE/TOD/DT must match exactly
+        if _is_time_family(fam_l) or _is_time_family(fam_r):
+            if fam_l != fam_r:
+                # Special hint: TIME compared with non-time literal
+                l_lit = literal_type(strip_parens(R))
+                r_lit = literal_type(strip_parens(L))
+                if fam_l == "TIME" and (l_lit is None or l_lit != "TIME"):
+                    return False, "TIME comparison requires a TIME literal (e.g., T#1S) or TIME-typed expression"
+                if fam_r == "TIME" and (r_lit is None or r_lit != "TIME"):
+                    return False, "TIME comparison requires a TIME literal (e.g., T#1S) or TIME-typed expression"
+                return False, f"Incompatible types for comparison: {lt} {op} {rt}"
+            return True, ""
+
+        # STRING family: if comparing to a literal, it must be a quoted string
+        if fam_l == "STRING" or fam_r == "STRING":
+            l_lit = literal_type(strip_parens(L))
+            r_lit = literal_type(strip_parens(R))
+            if (l_lit and l_lit != "STRING") or (r_lit and r_lit != "STRING"):
+                return False, "STRING comparison requires a quoted string literal"
+            if fam_l == fam_r == "STRING":
+                return True, ""
+            # Comparing STRING with non-string expression
+            return False, f"Incompatible types for comparison: {lt} {op} {rt}"
+
+        # Numeric (INT/REAL) – allow mixing
+        if is_numeric(lt) and is_numeric(rt):
+            return True, ""
+
+        # BOOL/CHAR allow only same family
+        if fam_l == fam_r and fam_l in {"BOOL","CHAR"}:
+            return True, ""
+
+        return False, f"Incompatible types for comparison: {lt} {op} {rt}"
+
+    # No explicit comparison: ensure whole expr is BOOL
+    t = infer_expr_type(e, var_types, functions)
+    if t == "BOOL":
+        return True, ""
+    return False, "Condition must be BOOL"
+
 # ---------------- Statement Checker ----------------
 
 def expected_type_from_target(target: str, var_types: Dict[str, str]) -> Optional[str]:
@@ -482,9 +568,9 @@ def stmtChecker(stmt: dict,
         return True, ""
 
     if typ == "if":
-        cond_t = infer_expr_type(stmt.get("condition", ""), var_types, functions)
-        if cond_t != "BOOL":
-            return False, "If condition must be BOOL"
+        ok, msg = validate_condition_expr(stmt.get("condition", ""), var_types, functions)
+        if not ok:
+            return False, msg
         for s in stmt.get("then", []):
             ok, msg = stmtChecker(s, vars_in_scope, functions, fb_defs, var_types)
             if not ok: return ok, msg
@@ -520,18 +606,18 @@ def stmtChecker(stmt: dict,
         return True, ""
 
     if typ == "while":
-        cond_t = infer_expr_type(stmt.get("condition", ""), var_types, functions)
-        if cond_t != "BOOL":
-            return False, "While condition must be BOOL"
+        ok, msg = validate_condition_expr(stmt.get("condition", ""), var_types, functions)
+        if not ok:
+            return False, msg
         for s in stmt.get("body", []):
             ok, msg = stmtChecker(s, vars_in_scope, functions, fb_defs, var_types)
             if not ok: return ok, msg
         return True, ""
 
     if typ == "repeat":
-        until_t = infer_expr_type(stmt.get("until", ""), var_types, functions)
-        if until_t != "BOOL":
-            return False, "Repeat 'until' must be BOOL"
+        ok, msg = validate_condition_expr(stmt.get("until", ""), var_types, functions)
+        if not ok:
+            return False, msg
         for s in stmt.get("body", []):
             ok, msg = stmtChecker(s, vars_in_scope, functions, fb_defs, var_types)
             if not ok: return ok, msg
