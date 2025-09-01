@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 # ---- 1. Setup LLM (Groq) ----
 llm = ChatGroq(
-    groq_api_key=os.environ["GROQ_API_KEY3"],
+    groq_api_key=os.environ["GROQ_API_KEY"],
     model=os.environ.get("GROQ_MODEL_NAME", "llama-3.1-70b-versatile"),
 )
 # llm = ChatOllama(model="llama3:8b-instruct-q4_K_M")

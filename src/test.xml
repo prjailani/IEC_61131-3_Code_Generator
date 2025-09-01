@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0201">
+  <fileHeader companyName="My PLC Project" productName="MotorControlExample" productVersion="1.2" creationDateTime="2025-09-01T11:03:00" />
+  
+  <contentHeader name="Motor Control Program">
+    <coordinateInfo>
+      <fbd><scaling x="10" y="10" /></fbd>
+      <ld><scaling x="10" y="10" /></ld>
+      <sfc><scaling x="10" y="10" /></sfc>
+    </coordinateInfo>
+  </contentHeader>
+
+  <types>
+    <dataTypes />
+    <pous>
+      <pou name="Motor_Control_Program" pouType="program">
+        <interface>
+          <localVars>
+            <variable name="Start_Button"><type><BOOL /></type></variable>
+            <variable name="Stop_Button"><type><BOOL /></type></variable>
+            <variable name="Motor"><type><BOOL /></type></variable>
+          </localVars>
+        </interface>
+        <body>
+          <LD>
+            <rung localId="1" height="5" >
+              <leftPowerRail localId="2" position="{'x':5, 'y':1}" height="4" />
+              <contact localId="3" position="{'x':10, 'y':2}" variable="Start_Button">
+                <connectionPointIn><connection refLocalId="2" formalParameter="OUT" /></connectionPointIn>
+              </contact>
+              <contact localId="4" position="{'x':10, 'y':3}" variable="Motor">
+                <connectionPointIn><connection refLocalId="2" formalParameter="OUT" /></connectionPointIn>
+              </contact>
+              <contact localId="5" position="{'x':20, 'y':1}" negated="true" variable="Stop_Button">
+                <connectionPointIn>
+                  <connection refLocalId="3" />
+                  <connection refLocalId="4" />
+                </connectionPointIn>
+              </contact>
+              <coil localId="6" position="{'x':30, 'y':1}" variable="Motor">
+                <connectionPointIn><connection refLocalId="5" /></connectionPointIn>
+              </coil>
+              <rightPowerRail localId="7" position="{'x':35, 'y':1}" height="4">
+                <connectionPointIn><connection refLocalId="6" /></connectionPointIn>
+              </rightPowerRail>
+            </rung>
+          </LD>
+        </body>
+      </pou>
+    </pous>
+  </types>
+  
+  <instances>
+    <configurations>
+      <configuration name="DefaultConfiguration">
+        <resource name="DefaultResource">
+          <task name="MainTask" interval="T#100ms" priority="1">
+            <pouInstance name="Motor_Control_Instance" typeName="Motor_Control_Program">
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">Instance of the main motor control program.</xhtml>
+              </documentation>
+            </pouInstance>
+          </task>
+        </resource>
+      </configuration>
+    </configurations>
+  </instances>
+
+</project>

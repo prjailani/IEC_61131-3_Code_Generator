@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@xyflow/react": "^12.8.4",
-    "npx": "^10.2.2",
+    "npx": "^3.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "reactflow": "^11.11.4"
@@ -22,7 +22,6 @@
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.21",
-    "concurrently": "^8.0.0",
     "concurrently": "^8.0.0",
     "eslint": "^9.33.0",
     "eslint-plugin-react-hooks": "^5.2.0",

@@ -1,0 +1,38 @@
+[
+  {
+    "dataType": "INT",
+    "deviceName": "TV",
+    "initialValue": "90",
+    "range": "0-40"
+  },
+  {
+    "dataType": "WORD",
+    "deviceName": "Mixi",
+    "initialValue": "This is mixer",
+    "range": "70-80"
+  },
+  {
+    "dataType": "BOOL",
+    "deviceName": "Fan",
+    "initialValue": "",
+    "range": ""
+  },
+  {
+    "dataType": "BOOL",
+    "deviceName": "Light",
+    "initialValue": "LED Light",
+    "range": "0-40"
+  },
+  {
+    "dataType": "BOOL",
+    "deviceName": "Bulb",
+    "initialValue": "",
+    "range": "50-100"
+  },
+  {
+    "dataType": "BOOL",
+    "deviceName": "Water Heater",
+    "initialValue": "",
+    "range": "SCsxc"
+  }
+]
