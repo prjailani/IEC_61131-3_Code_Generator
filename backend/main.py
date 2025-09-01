@@ -97,11 +97,12 @@ def generateCode(body:NarrativeRequest):
         print("\n\n\n\n")
         intermediate = regenerate_IEC_JSON(body.narrative ,response[1],intermediate)
         response = validator(json.loads(intermediate))
-    
-    code = generator(json.loads(intermediate))
-    
-    return {"status":"ok","code":code}
-
+    if(response[0]):
+        code = generator(json.loads(intermediate))
+        
+        return {"status":"ok","code":code}
+    else:
+        raise HTTPException(status_code=400, detail=response[1])
 
 @app.post("/save-variables")
 def save_variables(body: SaveVariablesRequest):

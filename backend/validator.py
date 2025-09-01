@@ -823,6 +823,7 @@ def load_device_variables(mongo_uri: str, db_name: str, collection_name: str) ->
         datatype = doc.get("dataType")
         if name and datatype:
             vars_from_db[name] = datatype.upper()
+    print(vars_from_db)
     return vars_from_db
 
 
