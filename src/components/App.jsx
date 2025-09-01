@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import './index.css';
-import LadderDiagram from './ladder_logic.jsx';
+// import './index.css';
+import LadderLogicDiagram from './ladder_logic.jsx';
 import Users from './users.jsx';
+
+
+
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('main');
@@ -9,6 +12,23 @@ export default function App() {
   const [generatedCode, setGeneratedCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+
+
+  const PROGRAM = {
+  rungs: [
+    {
+      contacts: [
+        { type: "NO", label: "06:00 Timer" },
+        { type: "NC", label: "19:00 Timer" }
+      ],
+      coil: { label: "Motor Coil" }
+    },
+    {
+      contacts: [{ type: "NO", label: "Start PB" }],
+      coil: { label: "Lamp" }
+    }
+  ]
+};
 
   function copier() {
   // Get the text field
@@ -62,8 +82,8 @@ export default function App() {
 
   return (
     <div className="app-container">
-        {/* <LadderDiagram /> */}
-      <div className="card">
+
+       <div className="card">
         <div className="switch-container">
           <button onClick={() => setCurrentPage('users')} className="btn btn-secondary">
             Go to Variables
@@ -76,8 +96,9 @@ export default function App() {
         <h1 className="title">
           IEC 61131-3 Code Generator
         </h1>
-
+      
         <div>
+         
           <textarea
             className="input-textarea"
             placeholder="e.g., If the temperature is greater than 100 degrees Celsius, then turn off the heater."
@@ -124,7 +145,7 @@ export default function App() {
             </>
           )}
         </div>
-      
+        <LadderLogicDiagram /> 
 
       </div>
     </div>

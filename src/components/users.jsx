@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './index.css';
+// import './index.css';
 
 export default function Users({ onGoBack }) {
   const [variables, setVariables] = useState([]);
