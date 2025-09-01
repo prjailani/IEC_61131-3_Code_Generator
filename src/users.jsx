@@ -15,7 +15,7 @@ export default function Users({ onGoBack }) {
     deviceName: '',
     dataType: 'BOOL',
     range: '',
-    initialValue: '',
+    MetaData: '',
   });
 
   const allDataTypes = [
@@ -36,7 +36,7 @@ export default function Users({ onGoBack }) {
       const variablesWithId = data.variables.map(v => ({ 
         ...v, 
         id: v._id ? v._id.toString() : Date.now() + Math.random(),
-        initialValue: v.initialValue || ''
+        MetaData: v.MetaData || ''
       }));
       setVariables(variablesWithId);
     } catch (e) {
@@ -94,7 +94,7 @@ export default function Users({ onGoBack }) {
       id: Date.now().toString(), 
       ...newVariableForm,
     }]);
-    setNewVariableForm({ deviceName: '', dataType: 'BOOL', range: '', initialValue: '' });
+    setNewVariableForm({ deviceName: '', dataType: 'BOOL', range: '', MetaData: '' });
   };
   
   const handleInputChange = (id, event) => {
@@ -167,9 +167,9 @@ export default function Users({ onGoBack }) {
                 />
                 <input
                     type="text"
-                    name="initialValue"
+                    name="MetaData"
                     placeholder="Additional"
-                    value={newVariableForm.initialValue}
+                    value={newVariableForm.MetaData}
                     onChange={handleNewVariableInputChange}
                     className="input-base"
                 />
@@ -239,8 +239,8 @@ export default function Users({ onGoBack }) {
                       </td>
                       <td>
                         <input
-                          type="text" name="initialValue"
-                          value={variable.initialValue}
+                          type="text" name="MetaData"
+                          value={variable.MetaData}
                           onChange={(e) => handleInputChange(variable.id, e)}
                           className="table-input"
                           disabled={editingId !== variable.id}

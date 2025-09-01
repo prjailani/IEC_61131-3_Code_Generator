@@ -76,7 +76,7 @@ class Variable(BaseModel):
     deviceName: str
     dataType: str
     range: str
-    initialValue: str
+    MetaData: str
     id: str = None # Make id optional for existing documents
 
 class SaveVariablesRequest(BaseModel):
