@@ -1,19 +1,19 @@
-from fastapi import FastAPI, Body, UploadFile, File
+from fastapi import FastAPI, Body, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import random
 import sys
 import os
 import json
+from pymongo import MongoClient
+import re # Import the regular expression module
 
+# Make sure these imports are correct for your project
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
 from AI_Integration.main import generate_IEC_JSON, regenerate_IEC_JSON
 from validator import validator
 from generator import generator
-import os
-import json
-from pymongo import MongoClient
 
 app = FastAPI()
 app.add_middleware(
@@ -22,7 +22,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://natrajrakul_db_user:kvxWYOeQXDOc0j7n@converter.wtd1klj.mongodb.net/?retryWrites=true&w=majority&appName=Converter")
 DB_NAME = "iec_code_generator" 
@@ -74,10 +73,11 @@ class NarrativeRequest(BaseModel):
     narrative: str
 
 class Variable(BaseModel):
-    id: str
     deviceName: str
     dataType: str
     range: str
+    initialValue: str
+    id: str = None # Make id optional for existing documents
 
 class SaveVariablesRequest(BaseModel):
     variables: list[Variable]
@@ -106,26 +106,37 @@ def generateCode(body:NarrativeRequest):
 @app.post("/save-variables")
 def save_variables(body: SaveVariablesRequest):
     """
-    This endpoint receives a list of variables from the frontend and saves them
-    to a MongoDB database.
+    This endpoint synchronizes the frontend's variables with the MongoDB database.
+    It deletes removed items, updates existing ones, and adds new ones.
     """
     if not client:
         return {"status": "error", "message": "Database connection failed."}
 
-    variables_data = [v.dict() for v in body.variables]
-    
     try:
-        operations = [
-            variables_collection.update_one(
-                {"id": var["id"]},
-                {"$set": var},
-                upsert=True
-            ) for var in variables_data
-        ]
+        # 1. Get current variables from the database
+        db_variables = list(variables_collection.find({}, {"deviceName": 1}))
+        db_device_names = {doc["deviceName"] for doc in db_variables}
         
-        return {"status": "ok", "message": f"Successfully saved {len(variables_data)} variables."}
+        # 2. Get device names from the frontend's list
+        frontend_device_names = {var.deviceName for var in body.variables}
+        
+        # 3. Identify and delete variables that are in the database but not on the frontend
+        deleted_names = db_device_names - frontend_device_names
+        if deleted_names:
+            variables_collection.delete_many({"deviceName": {"$in": list(deleted_names)}})
+
+        # 4. Add or update the variables from the frontend's list
+        for var in body.variables:
+            query = {"deviceName": {"$regex": f"^{re.escape(var.deviceName)}$", "$options": "i"}}
+            variables_collection.update_one(
+                query,
+                {"$set": var.dict()},
+                upsert=True
+            )
+        
+        return {"status": "ok", "message": f"Successfully synchronized {len(body.variables)} variables."}
     except Exception as e:
-        print(f"Error saving to MongoDB: {e}")
+        print(f"Error synchronizing with database: {e}")
         return {"status": "error", "message": "Failed to save variables to the database."}
 
 @app.post("/upload-variables-json")
@@ -154,3 +165,46 @@ async def upload_variables_json(file: UploadFile = File(...)):
     except Exception as e:
         print(f"Error processing file upload: {e}")
         return {"status": "error", "message": "An unexpected error occurred during file upload."}
+
+@app.get("/get-variables")
+def get_variables():
+    """
+    This endpoint retrieves all saved variables from the MongoDB database.
+    """
+    if not client:
+        return {"status": "error", "message": "Database connection failed."}
+
+    try:
+        # Fetch all documents and return them
+        variables = list(variables_collection.find({}, {"_id": 0})) 
+        return {"status": "ok", "variables": variables}
+    except Exception as e:
+        print(f"Error retrieving from MongoDB: {e}")
+        return {"status": "error", "message": "Failed to retrieve variables from the database."}
+
+@app.delete("/remove-duplicates")
+def remove_duplicates():
+    """
+    Removes all but one of the duplicate variables based on deviceName (case-insensitive).
+    """
+    if not client:
+        raise HTTPException(status_code=500, detail="Database connection failed.")
+    
+    try:
+        # Get all device names
+        device_names = [doc["deviceName"] for doc in variables_collection.find({}, {"deviceName": 1})]
+        
+        # Keep track of unique device names (case-insensitive)
+        seen_names = {}
+        for name in device_names:
+            lower_name = name.lower()
+            if lower_name not in seen_names:
+                seen_names[lower_name] = True
+            else:
+                # Found a duplicate, remove it
+                variables_collection.delete_one({"deviceName": name})
+        
+        return {"status": "ok", "message": "Duplicates have been removed."}
+    except Exception as e:
+        print(f"Error removing duplicates: {e}")
+        raise HTTPException(status_code=500, detail="An error occurred while removing duplicates.")

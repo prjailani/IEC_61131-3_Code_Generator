@@ -145,7 +145,7 @@ def validate_datatype(dt: str, known_types: set) -> Tuple[bool, str]:
 RE_INT = re.compile(r"^[+-]?\d+$")
 RE_REAL = re.compile(r"^[+-]?(?:\d+\.\d*|\d*\.\d+)(?:[eE][+-]?\d+)?$")
 RE_BOOL = re.compile(r"^(TRUE|FALSE)$", re.IGNORECASE)
-RE_STR  = re.compile(r'^(?:"[^"\\](?:\\.[^"\\])"|\'[^\'\\](?:\\.[^\'\\])\')$')
+RE_STR  = re.compile(r'^(?:"[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')$')
 RE_TIME = re.compile(r"^(T|TIME)#[A-Za-z0-9_:+-]+$", re.IGNORECASE)
 RE_DATE = re.compile(r"^(D|DATE)#[A-Za-z0-9_:+-]+$", re.IGNORECASE)
 RE_TOD  = re.compile(r"^(TOD|TIME_OF_DAY)#[A-Za-z0-9_:+-]+$", re.IGNORECASE)
@@ -416,11 +416,7 @@ def resolve_member_type(var_name: str, var_types: Dict[str, str], fb_defs: Dict[
 # ---------------- Expression Type Inference ----------------
 
 def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, Dict[str, Any]], fb_defs: Dict[str, Dict[str, Any]]) -> Optional[str]:
-    try:
-        e_norm = normalize_expr(expr)
-    except ValueError:
-        return None
-    e = strip_parens(e_norm)
+    e = strip_parens(expr)
     if not e:
         return None
 
@@ -515,21 +511,8 @@ def _is_time_family(f: str) -> bool:
 
 
 def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dict[str, Dict[str, Any]], fb_defs: Dict[str, Dict[str, Any]]) -> Tuple[bool, str]:
-    """
-    Validate that expr is a BOOL, with strict comparison rules:
-     - Comparisons (=, <>, <, >, <=, >=) must yield BOOL.
-     - TIME/DATE/TOD/DT comparisons require both sides to be the same family; if a literal is used, it must be the matching typed literal (e.g., T#... for TIME).
-     - INT comparisons may use integer or real literals (e.g., 10, 18, 18.00).
-     - REAL comparisons allow decimals (e.g., 18.0, 0.5).
-     - STRING comparisons require quoted strings.
-     - Reject invalid mixed-type comparisons (e.g., TIME = 18.00).
-    """
-    try:
-        e_norm = normalize_expr(expr)
-    except ValueError as exc:
-        return False, str(exc)
-
-    e = strip_parens(e_norm)
+   
+    e = strip_parens(expr)
 
     # Handle OR/AND recursively
     sp = split_top(e, LOGICAL_OR)
@@ -568,10 +551,9 @@ def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dic
                 # check if the literal side is correctly typed
                 l_lit = literal_type(strip_parens(L))
                 r_lit = literal_type(strip_parens(R))
-                # If left is time-family but right is a literal, verify literal matches
-                if _is_time_family(fam_l) and (r_lit is None or family_of(r_lit) != fam_l):
+                if _is_time_family(fam_l) and (r_lit is None or r_lit != fam_l):
                     return False, f"{fam_l} comparison requires a {fam_l} literal (e.g., T#1S) or {fam_l}-typed expression"
-                if _is_time_family(fam_r) and (l_lit is None or family_of(l_lit) != fam_r):
+                if _is_time_family(fam_r) and (l_lit is None or l_lit != fam_r):
                     return False, f"{fam_r} comparison requires a {fam_r} literal (e.g., T#1S) or {fam_r}-typed expression"
                 return False, f"Incompatible types for comparison: {lt} {op} {rt}"
             return True, ""

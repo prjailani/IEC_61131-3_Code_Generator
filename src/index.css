@@ -1,12 +1,30 @@
-/* General body and root styling */
+/* --- Root Variables for Theme Management --- */
+:root {
+    --bg-dark: #0a0d14;
+    --card-bg: #000000;
+    --card-border: #374151;
+    --input-bg: #374151;
+    --input-border: #4b5563;
+    --text-primary: #e5e7eb;
+    --text-secondary: #9ca3af;
+    --accent-primary: #2dd4bf;
+    --accent-primary-hover: #20b8a4;
+    --accent-text-dark: #111827;
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --code-bg: #0d1117;
+}
+/* --- General Body & Font Styling --- */
 body {
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  color: #e5e7eb;
-  background-color: #111827;
+  color: var(--text-primary);
+  background-color: var(--bg-dark);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* App container and card styling */
+/* --- App Layout & Card --- */
 .app-container {
   display: flex;
   flex-direction: column;
@@ -16,32 +34,32 @@ body {
 }
 
 .card {
-  margin-left: auto;
-  margin-right: auto;
-  max-width: 48rem;
-  background-color: #1f2937;
-  padding: 2rem;
+  width: 100%;
+  max-width: 64rem;
+  margin: 0 auto;
+  background-color: var(--card-bg);
+  padding: 2.5rem;
   border-radius: 1rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
-/* Title and description styling */
+/* --- Typography --- */
 .title {
-  font-size: 3rem;
+  font-size: 2.5rem;
   font-weight: 800;
   text-align: center;
-  color: #2dd4bf;
-  margin-bottom: 0.5rem;
+  color: var(--accent-primary);
+  margin: 0 0 3rem;
 }
 
 .description {
   text-align: center;
-  color: #9ca3af;
+  color: #a8abaf;
   font-size: 1.125rem;
-  margin-bottom: 2rem;
+  margin-bottom: 3rem;
 }
 
-/* Switch interface styles */
+/* --- Header Navigation Buttons --- */
 .switch-container {
   display: flex;
   justify-content: flex-end;
@@ -49,160 +67,344 @@ body {
   gap: 1rem;
 }
 
-.switch-button {
-  padding: 0.5rem 1rem;
+/* --- Base Button Styles (for consistency) --- */
+.btn {
+  padding: 0.6rem 1.25rem;
   font-weight: 700;
   border-radius: 0.5rem;
-  border: 1px solid #4b5563;
-  background-color: #1f2937;
-  color: #fff;
+  border: none;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  font-size: 0.9rem;
 }
 
-.switch-button:hover {
-  background-color: #374151;
+.btn:hover {
+  transform: translateY(-2px);
 }
 
-.switch-button:disabled {
-  cursor: not-allowed;
+.btn:disabled {
   opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
-/* Variable form styling */
-.variable-row {
-  display: grid;
-  grid-template-columns: 2fr 1.5fr 1.5fr 0.5fr;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  align-items: center;
+.btn-secondary {
+  border: 1px solid var(--input-border);
+  background-color: transparent;
+  color: var(--text-primary);
 }
 
-.text-input-small, .select-input {
-  padding: 0.75rem;
-  font-size: 1rem;
-  color: #e5e7eb;
-  background-color: #374151;
-  border: 1px solid #4b5563;
-  border-radius: 0.5rem;
-  box-sizing: border-box;
+.btn-secondary:not(:disabled):hover {
+  background-color: var(--card-border);
+}
+
+.btn-primary {
+  background-color: var(--accent-primary);
+  color: var(--accent-text-dark);
+}
+
+.btn-primary:not(:disabled):hover {
+  background-color: var(--accent-primary-hover);
+}
+
+.btn-danger {
+    background-color: var(--danger);
+    color: var(--text-primary);
+}
+
+.btn-danger:not(:disabled):hover {
+    background-color: var(--danger-hover);
+}
+
+/* --- Main Page Specific Styles --- */
+.input-textarea {
   width: 100%;
-}
-
-.select-input {
-  cursor: pointer;
-}
-
-.text-input-small:focus, .select-input:focus {
-  outline: 2px solid #2dd4bf;
-  border-color: #2dd4bf;
-}
-
-.button-container-small {
-  display: flex;
-  justify-content: center;
-  margin-top: 1rem;
-}
-
-.add-button {
-  padding: 0.5rem 1rem;
-  background-color: #4b5563;
-  color: #fff;
-  font-weight: 700;
-  border-radius: 0.5rem;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.add-button:hover {
-  background-color: #6b7280;
-}
-
-.remove-button {
-  padding: 0.5rem 1rem;
-  background-color: #ef4444;
-  color: #fff;
-  font-weight: 700;
-  border-radius: 0.5rem;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.remove-button:hover {
-  background-color: #dc2626;
-}
-
-.no-variables-message {
-  text-align: center;
-  color: #9ca3af;
-  font-style: italic;
-}
-
-.success-message {
-  text-align: center;
-  color: #10b981;
-  margin-top: 1rem;
-  font-weight: 600;
-}
-
-.user-id {
-  font-weight: 600;
-  color: #2dd4bf;
-  word-break: break-all;
-}
-
-/* Other general styles */
-.button-container {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 2rem;
-}
-
-.generate-button {
-  padding: 0.75rem 2rem;
-  background-image: linear-gradient(to right, #2dd4bf, #06b6d4);
-  color: #fff;
-  font-weight: 700;
-  border-radius: 9999px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s ease-in-out;
-  border: none;
-  cursor: pointer;
-}
-
-.copy-button{
-  padding: 0.25rem 0.75rem;
-  background-image: linear-gradient(to right, #2dd4bf, #06b6d4);
-  color: #fff;
-  font-weight: 700;
-  border-radius: 9999px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s ease-in-out;
-  border: none;
-  cursor: pointer;
-}
-/* New input area styling */
-.input-area {
+  min-height: 150px;
+  padding: 1rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+  background-color: #0d1117;
+  border: 1px solid var(--input-border);
+  border-radius: 0.75rem;
+  box-sizing: border-box;
+  resize: vertical;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   margin-bottom: 1.5rem;
 }
 
-.text-input {
-  width: 100%;
-  height: 12rem;
-  padding: 1rem;
-  font-size: 1.125rem;
-  color: #e5e7eb;
-  background-color: #374151;
-  border: 1px solid #4b5563;
-  border-radius: 0.75rem;
-  box-sizing: border-box;
-  resize: none;
-  transition: all 0.3s ease-in-out;
+.input-textarea::placeholder {
+  color: var(--text-secondary);
 }
 
-.text-input:focus {
-  outline: 2px solid #2dd4bf;
-  border-color: #2dd4bf;
+.input-textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.3);
+}
+
+.generate-button-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2.5rem;
+}
+
+.btn-generate {
+  padding: 0.8rem 2.5rem;
+  font-size: 1.1rem;
+}
+
+/* --- Code Output Box --- */
+.code-box {
+  background-color: var(--code-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.code-title {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 1rem;
+}
+
+.code-block {
+  background-color: transparent;
+  padding: 0;
+  margin: 0;
+  white-space: pre-wrap; /* Allows code to wrap */
+  word-wrap: break-word;
+}
+
+.code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+
+/* --- Add Variable Form (from Users.jsx) --- */
+.add-variable-container {
+  padding: 1.5rem;
+  border: 1px solid var(--card-border);
+  border-radius: 0.75rem;
+  margin-bottom: 2.5rem;
+}
+
+.add-variable-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.input-base {
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  color:white;
+  background-color: #0d1117;
+  border: 1px solid var(--input-border);
+  border-radius: 0.5rem;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  flex: 1 1 150px;
+}
+
+.input-base::placeholder {
+  color: var(--text-secondary);
+}
+
+.input-base:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.3);
+}
+
+.add-variable-form .btn {
+  flex-shrink: 0;
+}
+
+/* --- Table Styles (from Users.jsx) --- */
+.table-container {
+  overflow-x: auto;
+  border: 1px solid var(--card-border);
+  border-radius: 0.75rem;
+}
+
+.variables-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.variables-table th,
+.variables-table td {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--card-border);
+  vertical-align: middle;
+}
+
+.variables-table th {
+  background-color: #2a3341;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.variables-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.variables-table tbody tr:hover {
+  background-color: #2a3341;
+}
+
+.table-input {
+  width: 100%;
+  padding: 0.6rem;
+  font-size: 0.9rem;
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--input-border);
+  border-radius: 0.375rem;
+  box-sizing: border-box;
+}
+
+.table-input:disabled {
+    background-color: transparent;
+    border-color: transparent;
+    color: var(--text-primary);
+    cursor: default;
+}
+
+.table-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-table {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.save-all-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--card-border);
+}
+
+/* --- Messages (Loading, Error, Empty) --- */
+.loading-message,
+.no-variables-message {
+  text-align: center;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 3rem 1rem;
+}
+
+.error-box {
+  background-color: rgba(185, 28, 28, 0.2);
+  color: #fecaca;
+  border: 1px solid #b91c1c;
+  padding: 1rem 1.5rem;
+  border-radius: 0.75rem;
+  text-align: center;
+  margin: 0 0 2.5rem;
+}
+
+.error-title {
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+}
+
+.error-message {
+    margin: 0;
+}
+
+/* --- NEW: Styles for Search Bar --- */
+.search-container {
+  margin-bottom: 1.5rem; /* Space between search bar and table */
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  box-sizing: border-box; /* Ensures padding is included in the width */
+}
+
+/* --- MODIFIED: Styles for Scrollable Table --- */
+.table-container {
+  max-height: 400px; /* Adjust this value as needed */
+  overflow-y: auto; /* Show vertical scrollbar only when content overflows */
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  position: relative; /* Needed for the sticky header */
+}
+
+.variables-table th {
+  position: sticky;
+  top: 0;
+  background-color: #0d1117; /* Ensure header has a background */
+  z-index: 1; /* Ensure header is above other content */
+}
+/* Optional: Add a subtle shadow to the header when scrolled */
+.table-container:after {
+  content: '';
+  position: sticky;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* --- Custom Scrollbar Styling (for .table-container) --- */
+
+/* For Firefox */
+.table-container {
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-secondary) var(--input-bg);
+}
+
+/* For WebKit browsers (Chrome, Safari, Edge, etc.) */
+
+/* 1. Set the width of the entire scrollbar */
+.table-container::-webkit-scrollbar {
+  width: 10px;
+}
+
+/* 2. Style the "track" (the background of the scrollbar) */
+.table-container::-webkit-scrollbar-track {
+  background: var(--input-bg);
+  border-radius: 10px;
+}
+
+/* 3. Style the "thumb" (the draggable part of the scrollbar) */
+.table-container::-webkit-scrollbar-thumb {
+  background-color: var(--text-secondary);
+  border-radius: 10px;
+  border: 2px solid var(--input-bg); /* Creates a nice padding effect */
+}
+
+/* 4. Style the thumb on hover for interactivity */
+.table-container::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent-primary);
+}
+
+.input-base:-webkit-autofill,
+.input-base:-webkit-autofill:hover,
+.input-base:-webkit-autofill:focus,
+.input-base:-webkit-autofill:active {
+    -webkit-text-fill-color: var(--text-primary) !important;
+    box-shadow: 0 0 0 30px var(--code-bg) inset !important;
+    transition: background-color 5000s ease-in-out 0s;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
