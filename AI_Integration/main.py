@@ -6,15 +6,18 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import RetrievalQA
+# from langchain_community.chat_models import ChatOllama
+from dotenv import load_dotenv
 
-from dotenv  import load_dotenv
 
 load_dotenv()
 # ---- 1. Setup LLM (Groq) ----
 llm = ChatGroq(
-    groq_api_key=os.environ["GROQ_API_KEY"],
+    groq_api_key=os.environ["GROQ_API_KEY3"],
     model=os.environ.get("GROQ_MODEL_NAME", "llama-3.1-70b-versatile"),
 )
+# llm = ChatOllama(model="llama3:8b-instruct-q4_K_M")
+
 
 # ---- 2. Load docs from a folder ----
 def load_docs_from_path(folder_path: str):
@@ -41,131 +44,168 @@ retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
 def generate_IEC_JSON(user_query):
     # ---- 4. Build QA chain with JSON output ----
-      template = """You are an IEC 61131 Structured Text to JSON translator.
-      Use the following context from reference docs:
-      {context}
+    template = """You are an IEC 61131 Structured Text to JSON translator.
+    Use the following context from reference docs:
+    {context}
 
-      User request: {question}
+    User request: {question}
 
-      Return only a valid JSON object that follows this schema:
-      [{{
-        "program": {{
-          "name": "<string>",
-          "declarations": [
-            {{ "type": "VAR", "name": "<string>", "datatype": "<string>" }}
-          ],
-          "statements": [
-            {{
-              "type": "if",
-              "condition": "<condition-expression>",
-              "then": [
-                {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
-              ],
-              "else": [
-                {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
-              ]
-            }}
-          ]
-        }}
+    Return only a valid JSON object that follows this schema.
+    The top-level object can be a 'program', a 'functionBlock', or a 'function'.
+
+    Example for a 'program':
+    [{{
+      "program": {{
+        "name": "<string>",
+        "declarations": [
+          {{ "type": "VAR", "name": "<string>", "datatype": "<string>" }}
+        ],
+        "statements": [
+          {{
+            "type": "if",
+            "condition": "< condition-expression>",
+            "then": [
+              {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
+            ]
+          }}
+        ]
       }}
-      ]
+    }}]
 
-      ⚠️ Important: 
-      - Always output **pure JSON**, nothing else.
-      - Keys must be exactly: "program", "name", "declarations", "statements", "type", "condition", "then", "else", "target", "expression", "datatype".
-      - Do not explain the code, just return JSON.
-      - When multiple programs are needed, return an list of program objects enclosed in [].
-      """
+    Example for a 'functionBlock':
+    [{{
+      "functionBlock": {{
+        "name": "<string>",
+        "inputs": [ {{ "name": "<string>", "datatype": "<string>" }} ],
+        "outputs": [ {{ "name": "<string>", "datatype": "<string>" }} ],
+        "locals": [ {{ "name": "<string>", "datatype": "<string>" }} ],
+        "body": [
+          {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
+        ]
+      }}
+    }}]
 
-      prompt = ChatPromptTemplate.from_template(template)
+    Example for a 'function':
+    [{{
+      "function": {{
+        "name": "<string>",
+        "returnType": "<string>",
+        "inputs": [ {{ "name": "<string>", "datatype": "<string>" }} ],
+        "body": [
+          {{ "type": "return", "expression": "<value>" }}
+        ]
+      }}
+    }}]
+    
+    ⚠️ Important: 
+    - Always output **pure JSON**, nothing else.
+    - The top-level object must be one of: "program", "functionBlock", or "function".
+    - Do not explain the code, just return JSON.
+    - When multiple programs, function blocks, or functions are needed, return an array of objects enclosed in [].
+    - When handling with conditional statements, use '=' not '==' for equals condition, do not use ternary operator, use AND instead of & or &&, use OR instead of | or ||, use NOT instead of !.
+    """
 
-      qa_chain = RetrievalQA.from_chain_type(
-          llm=llm,
-          retriever=retriever,
-          chain_type_kwargs={"prompt": prompt},
-      )
+    prompt = ChatPromptTemplate.from_template(template)
 
-      query = "Generate logic: "+user_query
-      result = qa_chain.invoke({"query": query})
+    qa_chain = RetrievalQA.from_chain_type(
+        llm=llm,
+        retriever=retriever,
+        chain_type_kwargs={"prompt": prompt},
+    )
 
-      return result["result"]
+    query = "Generate logic: " + user_query
+    result = qa_chain.invoke({"query": query})
+
+    return result["result"]
 
 
-
-
-
-def regenerate_IEC_JSON(user_query,  issue , generated_code) :
+def regenerate_IEC_JSON(user_query, issue, generated_code):
     # ---- 4. Build QA chain with JSON output ----
-      template = """
-      You are an IEC 61131 Structured Text to JSON translator. .Bug Fixer
-      Here you work in the  already generated code  but there is some issues araised  you need to fix and return same  new version of JSON code 
-      Use the following context from reference docs:
-      {context}
+    template = """
+    You are an IEC 61131 Structured Text to JSON translator. You are a bug fixer.
+    Here you work on already generated code, but there are some issues. You need to fix them and return a new, corrected version of the JSON code.
+    Use the following context from reference docs:
+    {context}
 
-      User request: {question}
+    User request: {question}
 
-      Already Generated code   : " generated_code  "
+    Return only a valid JSON object that follows this schema.
+    The top-level object can be a 'program', a 'functionBlock', or a 'function'.
 
-      Return only a valid JSON object that follows this schema:
-      [{{
-        "program": {{
-          "name": "<string>",
-          "declarations": [
-            {{ "type": "VAR", "name": "<string>", "datatype": "<string>" }}
-          ],
-          "statements": [
-            {{
-              "type": "if",
-              "condition": "<condition-expression>",
-              "then": [
-                {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
-              ],
-              "else": [
-                {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
-              ]
-            }}
-          ]
-        }}
-      }}]
+    Example for a 'program':
+    [{{
+      "program": {{
+        "name": "<string>",
+        "declarations": [
+          {{ "type": "VAR", "name": "<string>", "datatype": "<string>" }}
+        ],
+        "statements": [
+          {{
+            "type": "if",
+            "condition": "<condition-expression>",
+            "then": [
+              {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
+            ]
+          }}
+        ]
+      }}
+    }}]
 
-      ⚠️ Important: 
-      - Always output **pure JSON**, nothing else.
-      - Keys must be exactly: "program", "name", "declarations", "statements", "type", "condition", "then", "else", "target", "expression", "datatype".
-      - Do not explain the code, just return JSON. correct the  same json code without any error/ issues. fix that bug
-      - When multiple programs are needed, return an list of program objects enclosed in [].
-      """
+    Example for a 'functionBlock':
+    [{{
+      "functionBlock": {{
+        "name": "<string>",
+        "inputs": [ {{ "name": "<string>", "datatype": "<string>" }} ],
+        "outputs": [ {{ "name": "<string>", "datatype": "<string>" }} ],
+        "locals": [ {{ "name": "<string>", "datatype": "<string>" }} ],
+        "body": [
+          {{ "type": "assignment", "target": "<var>", "expression": "<value>" }}
+        ]
+      }}
+    }}]
 
-      prompt = ChatPromptTemplate.from_template(template)
+    Example for a 'function':
+    [{{
+      "function": {{
+        "name": "<string>",
+        "returnType": "<string>",
+        "inputs": [ {{ "name": "<string>", "datatype": "<string>" }} ],
+        "body": [
+          {{ "type": "return", "expression": "<value>" }}
+        ]
+      }}
+    }}]
+    
+    ⚠️ Important: 
+    - Always output **pure JSON**, nothing else.
+    - The top-level object must be one of: "program", "functionBlock", or "function".
+    - Do not explain the code, just return JSON. Correct the same JSON code without any errors or issues. Fix the bug.
+    - When multiple programs, function blocks, or functions are needed, return an array of objects enclosed in [].
+    - When handling with conditional statements, use '=' not '==' for equals condition, do not use ternary operator, use AND instead of & or &&, use OR instead of | or ||, use NOT instead of !.
+    """
 
-      qa_chain = RetrievalQA.from_chain_type(
-          llm=llm,
-          retriever=retriever,
-          chain_type_kwargs={"prompt": prompt},
-      )
+    prompt = ChatPromptTemplate.from_template(template)
 
-      query = "previous user query: "+user_query+"\n\n issue in exiting code : "+ issue  +" \n\n Already Generated_code : \n"+ generated_code
-      result = qa_chain.invoke({"query": query})
+    qa_chain = RetrievalQA.from_chain_type(
+        llm=llm,
+        retriever=retriever,
+        chain_type_kwargs={"prompt": prompt},
+    )
 
-      # print("Generated JSON:\n", result["result"])
-      return result["result"]
+    query = "previous user query: " + user_query + "\n\n issue in exiting code : " + issue + " \n\n Already Generated_code : \n" + generated_code
+    result = qa_chain.invoke({"query": query})
 
-
-
-
+    return result["result"]
 
 
 #==================================================================================================================
 
-#                                         testing Area 
+#                             testing Area 
 
 #==================================================================================================================
 
-# user =  input(" (-_-) Ask What you need  >>> ")
-
-
-# user_query =  input("Ask  : ")
-# user_query= "add two numbers"
-# generated_code =  """
+# user_query = "add two numbers"
+# generated_code = """
 # [{
 #   "function": {
 #     "name": "AddNubers", 
@@ -178,8 +218,7 @@ def regenerate_IEC_JSON(user_query,  issue , generated_code) :
 #       { "type": "return", "expression": "a+b" }
 #     ]
 #   }
-# }
-# ,
+# },
 # {
 #   "program": {
 #     "name": "FunctionCallExample",
@@ -202,10 +241,12 @@ def regenerate_IEC_JSON(user_query,  issue , generated_code) :
 #     ]
 #   }
 # }]
-
 # """
-# issue = "error : Function 'AddNumbers' not defined"
+# issue = "error: Function 'AddNumbers' not defined"
 
-# # regenerate_IEC_JSON(user_query ,issue,generated_code)
+# # Example of how to call the updated functions:
+# # This will generate the correct JSON for both the function and program.
+# print(generate_IEC_JSON("Create a function block that adds two integers and a program that uses it."))
 
-# generate_IEC_JSON( user_query)
+# # This will attempt to fix the typo in the function name ("AddNubers" -> "AddNumbers").
+# # print(regenerate_IEC_JSON(user_query, issue, generated_code))

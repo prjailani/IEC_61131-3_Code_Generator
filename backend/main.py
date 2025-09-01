@@ -39,6 +39,33 @@ except Exception as e:
     variables_collection = None
 # --- END: MONGODB CONFIGURATION ---
 
+
+def fetch_variables():
+    """
+    Fetches all variable documents from the MongoDB collection.
+    
+    Returns:
+        list: A list of variable documents.
+    """
+    if variables_collection is None:
+        print("MongoDB collection is not initialized.")
+        return []
+    
+    try:
+        variables = list(variables_collection.find({}))
+        for i in variables:
+            del i['_id']
+            del i['id']
+
+        with open("variables.json","w") as f:
+            f.write(json.dumps(variables,indent=2))
+        return variables
+    except Exception as e:
+        print(f"Error fetching variables from MongoDB: {e}")
+        return []
+
+fetch_variables()
+
 @app.get("/home")
 def root():
     return {"vazhthu":"Vanakkam"}
@@ -57,29 +84,24 @@ class SaveVariablesRequest(BaseModel):
 
 @app.post("/generate-code")
 def generateCode(body:NarrativeRequest):
+    max_attempts = 5
     intermediate = generate_IEC_JSON(body.narrative)
     response = validator(json.loads(intermediate))
 
-    while(response[0] == False):
+    
+    while(response[0] == False and max_attempts>0):
+        max_attempts -= 1
+        print("Regenerating IEC JSON due to validation errors...")
+        print(intermediate)
+        print(response[1])
+        print("\n\n\n\n")
         intermediate = regenerate_IEC_JSON(body.narrative ,response[1],intermediate)
         response = validator(json.loads(intermediate))
     
     code = generator(json.loads(intermediate))
     
     return {"status":"ok","code":code}
-def generateCode(body: NarrativeRequest):
-    print(body.narrative)
-    messages = [
-        "Structured Text naale Namma Dhan",
-        "Naa dhan da Leo...Leo doss...",
-        "Nee enna thetre la enna padam vena ottu, aana rohini nu varappo thala dhan..!!!",
-        "Sooriyan kitta kooda modhalam, Aana Coolie kitta modhave koodadhu",
-        "Trump phone panni Coolie ku rohini fdfs ticket irukkuma nu kekkuran",
-        "Narikki puduven",
-        "Anandh uh... ",
-        "Dummy Baava"
-    ]
-    return {"status": "ok", "code": random.choice(messages)}
+
 
 @app.post("/save-variables")
 def save_variables(body: SaveVariablesRequest):
