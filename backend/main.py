@@ -56,7 +56,7 @@ def fetch_variables():
             del i['_id']
             del i['id']
 
-        with open("variables.json","w") as f:
+        with open("./AI_Integration/kb/templates/variables.json","w") as f:
             f.write(json.dumps(variables,indent=2))
         return variables
     except Exception as e:

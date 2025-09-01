@@ -1,7 +1,8 @@
+
+# from typing import List, Dict, Any, Tuple
+from pymongo import MongoClient
 import re
 from typing import List, Dict, Tuple, Any, Optional
-
-# ====================== Utilities & Normalization ======================
 
 IDENT = r"[A-Za-z_][A-Za-z0-9_]*"
 
@@ -80,7 +81,7 @@ BOOL_FAMILY  = {"BOOL"}
 RE_STRING_T = re.compile(r"^(STRING|WSTRING)(\[(\d+)\])?$", re.IGNORECASE)
 
 # ARRAY grammar: supports multi-dim and nested base type
-RE_ARRAY_T = re.compile(r"^ARRAY\[\s*\d+\s*\.\.\s*\d+(?:\s*,\s*\d+\s*\.\.\s*\d+)\s\]\s+OF\s+(.+)$", re.IGNORECASE)
+RE_ARRAY_T = re.compile(r"^ARRAY\[\s*\d+\s*\.\.\s*\d+(?:\s*,\s*\d+\s*\.\.\s*\d+)*\s*\]\s+OF\s+(.+)$", re.IGNORECASE)
 
 # STRUCT grammar: STRUCT(Name : TYPE; Value : TYPE)
 RE_STRUCT_T = re.compile(r"^STRUCT\((.*)\)$", re.IGNORECASE | re.DOTALL)
@@ -381,7 +382,7 @@ def type_assignable(expected: str, actual: str) -> bool:
 
 # ---------------- Variable / Member Type Resolution ----------------
 
-MEMBER_TOKEN = re.compile(r"(\.[A-Za-z_][A-Za-z0-9_])|(\[[^\]]\])")
+MEMBER_TOKEN = re.compile(r"(\.[A-Za-z_][A-Za-z0-9_]*)|(\[[^\]]*\])")
 
 
 def resolve_member_type(var_name: str, var_types: Dict[str, str], fb_defs: Dict[str, Dict[str, Any]]) -> Optional[str]:
@@ -416,7 +417,11 @@ def resolve_member_type(var_name: str, var_types: Dict[str, str], fb_defs: Dict[
 # ---------------- Expression Type Inference ----------------
 
 def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, Dict[str, Any]], fb_defs: Dict[str, Dict[str, Any]]) -> Optional[str]:
-    e = strip_parens(expr)
+    try:
+        e_norm = normalize_expr(expr)
+    except ValueError:
+        return None
+    e = strip_parens(e_norm)
     if not e:
         return None
 
@@ -483,7 +488,7 @@ def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, D
         return None
 
     # variable/member reference
-    mvar = re.match(rf"^{IDENT}(?:\[[^\]]\]|\.[A-Za-z_][A-Za-z0-9_])\s$", e)
+    mvar = re.match(rf"^{IDENT}(?:\[[^\]]*\]|\.[A-Za-z_][A-Za-z0-9_]*)*\s*$", e)
     if mvar:
         t = resolve_member_type(e, var_types, fb_defs)
         # If not resolvable but base exists, return its type
@@ -511,8 +516,21 @@ def _is_time_family(f: str) -> bool:
 
 
 def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dict[str, Dict[str, Any]], fb_defs: Dict[str, Dict[str, Any]]) -> Tuple[bool, str]:
-   
-    e = strip_parens(expr)
+    """
+    Validate that expr is a BOOL, with strict comparison rules:
+     - Comparisons (=, <>, <, >, <=, >=) must yield BOOL.
+     - TIME/DATE/TOD/DT comparisons require both sides to be the same family; if a literal is used, it must be the matching typed literal (e.g., T#... for TIME).
+     - INT comparisons may use integer or real literals (e.g., 10, 18, 18.00).
+     - REAL comparisons allow decimals (e.g., 18.0, 0.5).
+     - STRING comparisons require quoted strings.
+     - Reject invalid mixed-type comparisons (e.g., TIME = 18.00).
+    """
+    try:
+        e_norm = normalize_expr(expr)
+    except ValueError as exc:
+        return False, str(exc)
+
+    e = strip_parens(e_norm)
 
     # Handle OR/AND recursively
     sp = split_top(e, LOGICAL_OR)
@@ -551,9 +569,10 @@ def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dic
                 # check if the literal side is correctly typed
                 l_lit = literal_type(strip_parens(L))
                 r_lit = literal_type(strip_parens(R))
-                if _is_time_family(fam_l) and (r_lit is None or r_lit != fam_l):
+                # If left is time-family but right is a literal, verify literal matches
+                if _is_time_family(fam_l) and (r_lit is None or family_of(r_lit) != fam_l):
                     return False, f"{fam_l} comparison requires a {fam_l} literal (e.g., T#1S) or {fam_l}-typed expression"
-                if _is_time_family(fam_r) and (l_lit is None or l_lit != fam_r):
+                if _is_time_family(fam_r) and (l_lit is None or family_of(l_lit) != fam_r):
                     return False, f"{fam_r} comparison requires a {fam_r} literal (e.g., T#1S) or {fam_r}-typed expression"
                 return False, f"Incompatible types for comparison: {lt} {op} {rt}"
             return True, ""
@@ -794,15 +813,37 @@ def stmtChecker(stmt: dict,
     # Unknown or empty -> allow (future constructs)
     return True, ""
 
-# ---------------- Main Validator ----------------
+def load_device_variables(mongo_uri: str, db_name: str, collection_name: str) -> Dict[str, str]:
+    """Fetch all device variables {name: datatype} from MongoDB."""
+    client = MongoClient(mongo_uri)
+    coll = client[db_name][collection_name]
+    vars_from_db = {}
+    for doc in coll.find():
+        name = doc.get("deviceName")
+        datatype = doc.get("dataType")
+        if name and datatype:
+            vars_from_db[name] = datatype.upper()
+    return vars_from_db
 
-def validator(intermediate: List[Dict[str, Any]]) -> Tuple[bool, str]:
+
+def validator(intermediate: List[Dict[str, Any]],
+              mongo_uri: str = "mongodb+srv://natrajrakul_db_user:kvxWYOeQXDOc0j7n@converter.wtd1klj.mongodb.net/?retryWrites=true&w=majority",
+              db_name: str = "iec_code_generator",
+              collection_name: str = "variables") -> Tuple[bool, str]:
+
+    # Load actual device variables from DB
+    device_vars = load_device_variables(mongo_uri, db_name, collection_name)
+    if not device_vars:
+        return False, "No device variables found in DB. Cannot validate."
+
     functions: Dict[str, Dict[str, Any]] = {}
     fb_defs: Dict[str, Dict[str, Any]] = {}
+    known_types = set(BASE_SCALAR_TYPES) | set(BUILTIN_FB_TYPES)
 
-    # Pass 1: collect signatures (functions + FBs)
+    # ---------------- Pass 1: Collect signatures (functions + FBs + add FB names to known_types) ----------------
     for block in intermediate:
         key = list(block.keys())[0]
+
         if key == "function":
             f = block["function"]
             fname = f.get("name")
@@ -811,12 +852,13 @@ def validator(intermediate: List[Dict[str, Any]]) -> Tuple[bool, str]:
             input_names = [i["name"] for i in f.get("inputs", [])]
             input_types = [i["datatype"] for i in f.get("inputs", [])]
             functions[fname] = {"inputs": input_names, "inputTypes": input_types, "returnType": f["returnType"]}
+
         elif key == "functionBlock":
             fb = block["functionBlock"]
             fbname = fb.get("name")
             if not fbname:
                 return False, "FunctionBlock missing name"
-            # map pins -> types
+            # Map pins and locals -> types
             fb_defs[fbname] = {
                 "inputs": [i["name"] for i in fb.get("inputs", [])],
                 "outputs": [o["name"] for o in fb.get("outputs", [])],
@@ -824,15 +866,15 @@ def validator(intermediate: List[Dict[str, Any]]) -> Tuple[bool, str]:
                 "inputTypes": {i["name"]: i["datatype"] for i in fb.get("inputs", [])},
                 "outputTypes": {o["name"]: o["datatype"] for o in fb.get("outputs", [])},
             }
+            known_types.add(fbname)  # FB names are also valid types
 
-    known_types = set(BASE_SCALAR_TYPES) | set(BUILTIN_FB_TYPES) | set(fb_defs.keys())
-
-    # Pass 2: validate blocks
+    # ---------------- Pass 2: Validate blocks ----------------
     for block in intermediate:
         blockType = list(block.keys())[0]
-        if blockType not in ("function","functionBlock","program"):
+        if blockType not in ("function", "functionBlock", "program"):
             return False, f"Invalid block type: {blockType}"
 
+        # ---------------- Validate Functions ----------------
         if blockType == "function":
             f = block["function"]
             # validate input types + return type
@@ -840,51 +882,77 @@ def validator(intermediate: List[Dict[str, Any]]) -> Tuple[bool, str]:
                 ok, msg = validate_datatype(dt["datatype"], known_types)
                 if not ok:
                     return False, f"Function '{f['name']}' type error: {msg}"
+
             scope = {i["name"] for i in f.get("inputs", [])}
             var_types = {i["name"]: i["datatype"] for i in f.get("inputs", [])}
-            # body
+
             for s in f.get("body", []):
                 if s.get("type") == "return":
-                    t = infer_expr_type(s.get("expression",""), var_types, functions, fb_defs)
+                    t = infer_expr_type(s.get("expression", ""), var_types, functions, fb_defs)
                     if t is None or not type_assignable(f.get("returnType"), t):
                         return False, f"Return type mismatch: expected {f.get('returnType')}, got {t}"
                 else:
                     ok, msg = stmtChecker(s, scope, functions, fb_defs, var_types)
-                    if not ok: return False, msg
+                    if not ok:
+                        return False, msg
 
+        # ---------------- Validate Function Blocks ----------------
         elif blockType == "functionBlock":
             fb = block["functionBlock"]
             # validate interface/locals types
-            for arr, label in (("inputs","input"),("outputs","output"),("locals","local")):
+            for arr, label in (("inputs", "input"), ("outputs", "output"), ("locals", "local")):
                 for item in fb.get(arr, []):
                     ok, msg = validate_datatype(item["datatype"], known_types)
                     if not ok:
                         return False, f"FunctionBlock '{fb['name']}' {label} '{item['name']}': {msg}"
+
             scope = set([*(n for n in fb_defs[fb["name"]]["inputs"]),
                          *(n for n in fb_defs[fb["name"]]["outputs"]),
                          *(n for n in fb_defs[fb["name"]]["locals"])])
+
             var_types = {}
-            for arr in ("inputs","outputs","locals"):
+            for arr in ("inputs", "outputs", "locals"):
                 for item in fb.get(arr, []):
                     var_types[item["name"]] = item["datatype"]
+
             for s in fb.get("body", []):
                 ok, msg = stmtChecker(s, scope, functions, fb_defs, var_types)
-                if not ok: return False, msg
+                if not ok:
+                    return False, msg
 
+        # ---------------- Validate Programs ----------------
         elif blockType == "program":
             prog = block["program"]
             if "declarations" not in prog:
                 return False, f"Program '{prog.get('name','<unnamed>')}' missing declarations"
+
             scope: set = set()
             var_types: Dict[str, str] = {}
+
+            # Process declarations with external DB validation
             for d in prog.get("declarations", []):
-                ok, msg = validate_datatype(d["datatype"], known_types)
+                vname, vtype = d["name"], d["datatype"]
+
+                # validate datatype
+                ok, msg = validate_datatype(vtype, known_types)
                 if not ok:
-                    return False, f"Program '{prog['name']}' declaration '{d['name']}': {msg}"
-                scope.add(d["name"])
-                var_types[d["name"]] = d["datatype"]
+                    return False, f"Program '{prog['name']}' declaration '{vname}': {msg}"
+
+                # Check existence in external DB
+                if vname not in device_vars:
+                    return False, f"Variable '{vname}' not found in device specifications"
+
+                # Check type consistency with DB
+                if device_vars[vname] != vtype.upper():
+                    return False, f"Type mismatch for '{vname}': DB has {device_vars[vname]}, JSON declares {vtype}"
+
+                scope.add(vname)
+                var_types[vname] = device_vars[vname]
+
+            # Validate program statements
             for s in prog.get("statements", []):
                 ok, msg = stmtChecker(s, scope, functions, fb_defs, var_types)
-                if not ok: return False, msg
+                if not ok:
+                    return False, msg
 
-    return True, "Build Success ✅"
+    return True, "Build Success✅"
