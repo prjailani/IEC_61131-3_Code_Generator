@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
-// import './index.css';
-import LadderLogicDiagram from './ladder_logic.jsx';
 import Users from './users.jsx';
-
-
 
 
 export default function App() {
@@ -145,7 +141,7 @@ export default function App() {
             </>
           )}
         </div>
-        <LadderLogicDiagram /> 
+    
 
       </div>
     </div>

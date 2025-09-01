@@ -6,7 +6,7 @@
     "range": "0-40"
   },
   {
-    "dataType": "WORD",
+    "dataType": "INT",
     "deviceName": "Mixi",
     "initialValue": "This is mixer",
     "range": "70-80"
