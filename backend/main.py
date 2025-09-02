@@ -6,7 +6,7 @@ import sys
 import os
 import json
 from pymongo import MongoClient
-import re # Import the regular expression module
+import re 
 
 # Make sure these imports are correct for your project
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
@@ -77,7 +77,7 @@ class Variable(BaseModel):
     dataType: str
     range: str
     MetaData: str
-    id: str = None # Make id optional for existing documents
+    id: str = None
 
 class SaveVariablesRequest(BaseModel):
     variables: list[Variable]

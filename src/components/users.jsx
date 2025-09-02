@@ -7,8 +7,6 @@ export default function Users({ onGoBack }) {
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
-
-  // --- NEW: State for the search term ---
   const [searchTerm, setSearchTerm] = useState('');
 
   const [newVariableForm, setNewVariableForm] = useState({
@@ -47,10 +45,18 @@ export default function Users({ onGoBack }) {
     }
   };
 
+  // --- UPDATED: This now trims all string values before sending to the backend ---
   const saveVariables = async () => {
     setIsSaving(true);
     setError(null);
-    const variablesToSend = variables.map(({ id, ...rest }) => rest);
+    
+    // This is the most important part: clean the data before sending.
+    const variablesToSend = variables.map(({ id, ...rest }) => ({
+      ...rest,
+      deviceName: rest.deviceName.trim(),
+      range: rest.range ? rest.range.trim() : '',
+      MetaData: rest.MetaData ? rest.MetaData.trim() : '',
+    }));
 
     try {
       const response = await fetch('http://127.0.0.1:8000/save-variables', {
@@ -85,14 +91,35 @@ export default function Users({ onGoBack }) {
     setNewVariableForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  // --- NEW: Handler to trim spaces when user clicks away from the "Add Variable" form inputs ---
+  const handleNewVariableBlur = (event) => {
+    const { name, value } = event.target;
+    setNewVariableForm((prev) => ({ ...prev, [name]: value.trim() }));
+  };
+
+  // --- UPDATED: This now checks for empty names and duplicates before adding a row ---
   const addVariableRow = () => {
-    if (!newVariableForm.deviceName) {
+    const trimmedDeviceName = newVariableForm.deviceName.trim();
+
+    if (!trimmedDeviceName) {
         alert("Device Name cannot be empty.");
         return;
     }
+
+    // Check for duplicates (case-insensitive)
+    const isDuplicate = variables.some(
+      variable => variable.deviceName.toLowerCase() === trimmedDeviceName.toLowerCase()
+    );
+
+    if (isDuplicate) {
+      alert(`A device with the name "${trimmedDeviceName}" already exists. Please use a unique name.`);
+      return; // Stop the function if a duplicate is found
+    }
+
     setVariables([...variables, { 
       id: Date.now().toString(), 
       ...newVariableForm,
+      deviceName: trimmedDeviceName, // Use the trimmed name
     }]);
     setNewVariableForm({ deviceName: '', dataType: 'BOOL', range: '', MetaData: '' });
   };
@@ -100,6 +127,12 @@ export default function Users({ onGoBack }) {
   const handleInputChange = (id, event) => {
     const { name, value } = event.target;
     setVariables(variables.map(v => v.id === id ? { ...v, [name]: value } : v));
+  };
+  
+  // --- NEW: Handler to trim spaces when user clicks away from a table input ---
+  const handleTableInputBlur = (id, event) => {
+    const { name, value } = event.target;
+    setVariables(variables.map(v => v.id === id ? { ...v, [name]: value.trim() } : v));
   };
   
   const removeVariableRow = (id) => {
@@ -114,7 +147,6 @@ export default function Users({ onGoBack }) {
     }
   }
 
-  // --- NEW: Filter variables based on the search term before rendering ---
   const filteredVariables = variables.filter(variable =>
     variable.deviceName.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -125,9 +157,6 @@ export default function Users({ onGoBack }) {
         <div className="switch-container">
           <button onClick={onGoBack} className="btn btn-secondary">
             Go to Main Page
-          </button>
-          <button className="btn btn-secondary" disabled>
-            Go to Variables
           </button>
         </div>
 
@@ -147,6 +176,7 @@ export default function Users({ onGoBack }) {
                     placeholder="Device Name"
                     value={newVariableForm.deviceName}
                     onChange={handleNewVariableInputChange}
+                    onBlur={handleNewVariableBlur} // --- ADDED ONBLUR ---
                     className="input-base"
                 />
                 <select
@@ -163,6 +193,7 @@ export default function Users({ onGoBack }) {
                     placeholder="Range"
                     value={newVariableForm.range}
                     onChange={handleNewVariableInputChange}
+                    onBlur={handleNewVariableBlur} // --- ADDED ONBLUR ---
                     className="input-base"
                 />
                 <input
@@ -171,6 +202,7 @@ export default function Users({ onGoBack }) {
                     placeholder="Additional"
                     value={newVariableForm.MetaData}
                     onChange={handleNewVariableInputChange}
+                    onBlur={handleNewVariableBlur} // --- ADDED ONBLUR ---
                     className="input-base"
                 />
                 <button type="submit" className="btn btn-primary">
@@ -181,7 +213,6 @@ export default function Users({ onGoBack }) {
 
         {isLoading ? <p className="loading-message">Loading variables...</p> : (
           <>
-            {/* --- NEW: Search Bar --- */}
             <div className="search-container">
               <input
                 type="text"
@@ -192,7 +223,6 @@ export default function Users({ onGoBack }) {
               />
             </div>
             
-            {/* --- MODIFIED: Added scrollable container --- */}
             <div className="table-container">
               <table className="variables-table">
                 <thead>
@@ -205,7 +235,6 @@ export default function Users({ onGoBack }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* --- MODIFIED: Map over filteredVariables instead of variables --- */}
                   {filteredVariables.length > 0 ? filteredVariables.map((variable) => (
                     <tr key={variable.id}>
                       <td>
@@ -213,6 +242,7 @@ export default function Users({ onGoBack }) {
                           type="text" name="deviceName"
                           value={variable.deviceName}
                           onChange={(e) => handleInputChange(variable.id, e)}
+                          onBlur={(e) => handleTableInputBlur(variable.id, e)} // --- ADDED ONBLUR ---
                           className="table-input"
                           disabled={editingId !== variable.id}
                         />
@@ -233,6 +263,7 @@ export default function Users({ onGoBack }) {
                           type="text" name="range"
                           value={variable.range}
                           onChange={(e) => handleInputChange(variable.id, e)}
+                          onBlur={(e) => handleTableInputBlur(variable.id, e)} // --- ADDED ONBLUR ---
                           className="table-input"
                           disabled={editingId !== variable.id}
                         />
@@ -242,6 +273,7 @@ export default function Users({ onGoBack }) {
                           type="text" name="MetaData"
                           value={variable.MetaData}
                           onChange={(e) => handleInputChange(variable.id, e)}
+                          onBlur={(e) => handleTableInputBlur(variable.id, e)} // --- ADDED ONBLUR ---
                           className="table-input"
                           disabled={editingId !== variable.id}
                         />
@@ -260,7 +292,6 @@ export default function Users({ onGoBack }) {
                   )) : (
                     <tr>
                       <td colSpan="5">
-                        {/* --- MODIFIED: Smarter message for no results --- */}
                         <p className="no-variables-message">
                           {variables.length === 0 
                             ? "No variables found. Add one above to get started." 

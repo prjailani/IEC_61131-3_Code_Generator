@@ -85,9 +85,6 @@ export default function App() {
           <button onClick={() => setCurrentPage('users')} className="btn btn-secondary">
             Go to Variables
           </button>
-          <button className="btn btn-secondary" disabled>
-            Go to Main Page
-          </button>
         </div>
 
         <h1 className="title">
