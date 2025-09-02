@@ -24,7 +24,7 @@
     "range": "16-30"
   },
   {
-    "MetaData": "In the Hall ",
+    "MetaData": "In the Hall",
     "dataType": "INT",
     "deviceName": "AC_2",
     "range": "16-30"
@@ -57,6 +57,12 @@
     "MetaData": "On/off",
     "dataType": "BOOL",
     "deviceName": "Bulb",
+    "range": ""
+  },
+  {
+    "MetaData": "In the kitchen",
+    "dataType": "BOOL",
+    "deviceName": "Oven",
     "range": ""
   }
 ]
