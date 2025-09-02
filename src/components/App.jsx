@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import Users from './users.jsx';
 
-
 export default function App() {
   const [currentPage, setCurrentPage] = useState('main');
   const [narrativeText, setNarrativeText] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-
-
+  
+  // Default example program structure
   const PROGRAM = {
   rungs: [
     {
@@ -27,17 +26,8 @@ export default function App() {
 };
 
   function copier() {
-  // Get the text field
   var copyText = document.getElementsByClassName("codeBox");
-
-  // Select the text field
-  // copyText.select();
-  // copyText.setSelectionRange(0, 99999); // For mobile devices
-
-   // Copy the text inside the text field
   navigator.clipboard.writeText(copyText[0].textContent);
-
-  // Alert the copied text
   console.log("Copied the text: " + copyText[0].textContent);
 }
   const handleGenerateCode = async () => {
@@ -65,7 +55,6 @@ export default function App() {
         setError('API response was successful but did not contain the expected "code" data.');
       }
     } catch (e) {
-      // console.error('E = ', e);
       setError(`Failed to generate code: ${e.message.split(':').pop().trim()}.`);
       console.error('There was a problem with the fetch operation:', e);
     } finally {
@@ -139,8 +128,6 @@ export default function App() {
             </>
           )}
         </div>
-    
-
       </div>
     </div>
   );

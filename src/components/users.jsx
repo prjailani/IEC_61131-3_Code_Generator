@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// import './index.css';
+
 
 export default function Users({ onGoBack }) {
   const [variables, setVariables] = useState([]);
@@ -45,12 +45,10 @@ export default function Users({ onGoBack }) {
     }
   };
 
-  // --- UPDATED: This now trims all string values before sending to the backend ---
   const saveVariables = async () => {
     setIsSaving(true);
     setError(null);
     
-    // This is the most important part: clean the data before sending.
     const variablesToSend = variables.map(({ id, ...rest }) => ({
       ...rest,
       deviceName: rest.deviceName.trim(),
@@ -70,7 +68,7 @@ export default function Users({ onGoBack }) {
       const data = await response.json();
       if (data.status === 'ok') {
         alert('Variables successfully saved!');
-        fetchVariables(); // Refresh data from server
+        fetchVariables(); 
       } else {
         setError(data.message || 'Failed to save variables.');
       }
@@ -91,13 +89,11 @@ export default function Users({ onGoBack }) {
     setNewVariableForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // --- NEW: Handler to trim spaces when user clicks away from the "Add Variable" form inputs ---
   const handleNewVariableBlur = (event) => {
     const { name, value } = event.target;
     setNewVariableForm((prev) => ({ ...prev, [name]: value.trim() }));
   };
 
-  // --- UPDATED: This now checks for empty names and duplicates before adding a row ---
   const addVariableRow = () => {
     const trimmedDeviceName = newVariableForm.deviceName.trim();
 
@@ -106,20 +102,19 @@ export default function Users({ onGoBack }) {
         return;
     }
 
-    // Check for duplicates (case-insensitive)
     const isDuplicate = variables.some(
       variable => variable.deviceName.toLowerCase() === trimmedDeviceName.toLowerCase()
     );
 
     if (isDuplicate) {
       alert(`A device with the name "${trimmedDeviceName}" already exists. Please use a unique name.`);
-      return; // Stop the function if a duplicate is found
+      return; 
     }
 
     setVariables([...variables, { 
       id: Date.now().toString(), 
       ...newVariableForm,
-      deviceName: trimmedDeviceName, // Use the trimmed name
+      deviceName: trimmedDeviceName, 
     }]);
     setNewVariableForm({ deviceName: '', dataType: 'BOOL', range: '', MetaData: '' });
   };
@@ -129,7 +124,6 @@ export default function Users({ onGoBack }) {
     setVariables(variables.map(v => v.id === id ? { ...v, [name]: value } : v));
   };
   
-  // --- NEW: Handler to trim spaces when user clicks away from a table input ---
   const handleTableInputBlur = (id, event) => {
     const { name, value } = event.target;
     setVariables(variables.map(v => v.id === id ? { ...v, [name]: value.trim() } : v));
@@ -141,9 +135,9 @@ export default function Users({ onGoBack }) {
   
   const handleEditSave = (variable) => {
     if (editingId === variable.id) {
-        setEditingId(null); // Exit edit mode
+        setEditingId(null); 
     } else {
-        setEditingId(variable.id); // Enter edit mode
+        setEditingId(variable.id); 
     }
   }
 
@@ -176,7 +170,7 @@ export default function Users({ onGoBack }) {
                     placeholder="Device Name"
                     value={newVariableForm.deviceName}
                     onChange={handleNewVariableInputChange}
-                    onBlur={handleNewVariableBlur} // --- ADDED ONBLUR ---
+                    onBlur={handleNewVariableBlur} 
                     className="input-base"
                 />
                 <select
@@ -193,7 +187,7 @@ export default function Users({ onGoBack }) {
                     placeholder="Range"
                     value={newVariableForm.range}
                     onChange={handleNewVariableInputChange}
-                    onBlur={handleNewVariableBlur} // --- ADDED ONBLUR ---
+                    onBlur={handleNewVariableBlur} 
                     className="input-base"
                 />
                 <input
@@ -202,7 +196,7 @@ export default function Users({ onGoBack }) {
                     placeholder="Additional"
                     value={newVariableForm.MetaData}
                     onChange={handleNewVariableInputChange}
-                    onBlur={handleNewVariableBlur} // --- ADDED ONBLUR ---
+                    onBlur={handleNewVariableBlur} 
                     className="input-base"
                 />
                 <button type="submit" className="btn btn-primary">
@@ -242,7 +236,7 @@ export default function Users({ onGoBack }) {
                           type="text" name="deviceName"
                           value={variable.deviceName}
                           onChange={(e) => handleInputChange(variable.id, e)}
-                          onBlur={(e) => handleTableInputBlur(variable.id, e)} // --- ADDED ONBLUR ---
+                          onBlur={(e) => handleTableInputBlur(variable.id, e)}
                           className="table-input"
                           disabled={editingId !== variable.id}
                         />
@@ -263,7 +257,7 @@ export default function Users({ onGoBack }) {
                           type="text" name="range"
                           value={variable.range}
                           onChange={(e) => handleInputChange(variable.id, e)}
-                          onBlur={(e) => handleTableInputBlur(variable.id, e)} // --- ADDED ONBLUR ---
+                          onBlur={(e) => handleTableInputBlur(variable.id, e)} 
                           className="table-input"
                           disabled={editingId !== variable.id}
                         />
@@ -273,7 +267,7 @@ export default function Users({ onGoBack }) {
                           type="text" name="MetaData"
                           value={variable.MetaData}
                           onChange={(e) => handleInputChange(variable.id, e)}
-                          onBlur={(e) => handleTableInputBlur(variable.id, e)} // --- ADDED ONBLUR ---
+                          onBlur={(e) => handleTableInputBlur(variable.id, e)} 
                           className="table-input"
                           disabled={editingId !== variable.id}
                         />
