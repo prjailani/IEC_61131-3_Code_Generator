@@ -21,7 +21,7 @@ llm = ChatGroq(
 
 # ---- 2. Load docs from a folder ----
 def load_docs_from_path(folder_path: str):
-    all_files = glob.glob(os.path.join(folder_path, "**/*.txt"), recursive=True)
+    all_files = glob.glob(os.path.join(folder_path, "**/*.json"), recursive=True)
     docs = []
     for f in all_files:
         with open(f, "r", encoding="utf-8") as infile:
@@ -98,6 +98,15 @@ def generate_IEC_JSON(user_query):
     }}]
     
     ⚠️ Important: 
+     -  RAG information  provide  in json  data:
+             -- " [
+                 "metadata": "details about that device function ",
+                 "dataType": "datatype that device use",
+                 "deviceName": "fixed variable name for that device operate",
+                 "range": "if numerical there will provide  min - max range "
+              ]
+              ** note :   you need to  give the name of the variable as give in "DeviceName"   it is case-sensitive   and 
+                     time  is special  formate that need to be Give in :
     - Always output **pure JSON**, nothing else.
     - The top-level object must be one of: "program", "functionBlock", or "function".
     - Do not explain the code, just return JSON.
@@ -112,6 +121,7 @@ def generate_IEC_JSON(user_query):
         retriever=retriever,
         chain_type_kwargs={"prompt": prompt},
     )
+    # print(qa_chain)
 
     query = "Generate logic: " + user_query
     result = qa_chain.invoke({"query": query})
@@ -177,6 +187,14 @@ def regenerate_IEC_JSON(user_query, issue, generated_code):
     }}]
     
     ⚠️ Important: 
+      -  RAG information  in json  data:
+             -- [
+                 "MetaData": "details about that device function ",
+                 "dataType": "datatype that device use",
+                 "deviceName": "fixed variable name for that device operate",
+                 "range": "if numerical there will provide  min - max range "
+              ],
+              ** note :   you need to  give the name of the variable as give in "DeviceName"   it is case-sensitive
     - Always output **pure JSON**, nothing else.
     - The top-level object must be one of: "program", "functionBlock", or "function".
     - Do not explain the code, just return JSON. Correct the same JSON code without any errors or issues. Fix the bug.
@@ -246,7 +264,10 @@ def regenerate_IEC_JSON(user_query, issue, generated_code):
 
 # # Example of how to call the updated functions:
 # # This will generate the correct JSON for both the function and program.
-# print(generate_IEC_JSON("Create a function block that adds two integers and a program that uses it."))
+
+
+
+# print(generate_IEC_JSON("Turn on the master betrooms AC'S at 8pm  and set cool at 30  then  close  door"))
 
 # # This will attempt to fix the typo in the function name ("AddNubers" -> "AddNumbers").
 # # print(regenerate_IEC_JSON(user_query, issue, generated_code))
