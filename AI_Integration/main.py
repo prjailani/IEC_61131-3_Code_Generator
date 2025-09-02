@@ -344,5 +344,4 @@ def regenerate_IEC_JSON(user_query, issue, generated_code):
 
 # print(generate_IEC_JSON("Turn on the master betrooms AC'S at 8pm  and set cool at 30  then  close  door"))
 
-# # This will attempt to fix the typo in the function name ("AddNubers" -> "AddNumbers").
 # # print(regenerate_IEC_JSON(user_query, issue, generated_code))
