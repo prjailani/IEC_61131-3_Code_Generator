@@ -1,8 +1,9 @@
 
-# from typing import List, Dict, Any, Tuple
-from pymongo import MongoClient
 import re
 from typing import List, Dict, Tuple, Any, Optional
+
+import json
+import os
 
 IDENT = r"[A-Za-z_][A-Za-z0-9_]*"
 
@@ -14,7 +15,6 @@ def base_var_name(name: str) -> str:
     return re.split(r"[\[\].]", str(name).strip())[0]
 
 # Heuristic: treat unknown bare words as string literal per user's legacy behavior
-# (e.g., VANAKKAM -> STRING). This matches prior validator expectations.
 BARE_WORD_AS_STRING = True
 
 # ====================== Datatype helpers ======================
@@ -111,7 +111,7 @@ def parse_struct_fields(dt: str) -> Tuple[bool, str, Dict[str, str]]:
         return False, f"Invalid STRUCT syntax: {dt}", {}
     payload = m.group(1)
     fields: Dict[str, str] = {}
-    # split by semicolons
+    
     for part in [p.strip() for p in payload.split(";") if p.strip()]:
         bits = [b.strip() for b in part.split(":")]
         if len(bits) != 2:
@@ -141,16 +141,35 @@ def validate_datatype(dt: str, known_types: set) -> Tuple[bool, str]:
         return True, ""
     return False, f"Unknown datatype {dt}"
 
-# ====================== Literal recognition ======================
+
+# # ====================== Literal recognition ======================
 
 RE_INT = re.compile(r"^[+-]?\d+$")
 RE_REAL = re.compile(r"^[+-]?(?:\d+\.\d*|\d*\.\d+)(?:[eE][+-]?\d+)?$")
 RE_BOOL = re.compile(r"^(TRUE|FALSE)$", re.IGNORECASE)
 RE_STR  = re.compile(r'^(?:"[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')$')
-RE_TIME = re.compile(r"^(T|TIME)#[A-Za-z0-9_:+-]+$", re.IGNORECASE)
-RE_DATE = re.compile(r"^(D|DATE)#[A-Za-z0-9_:+-]+$", re.IGNORECASE)
-RE_TOD  = re.compile(r"^(TOD|TIME_OF_DAY)#[A-Za-z0-9_:+-]+$", re.IGNORECASE)
-RE_DT   = re.compile(r"^(DT|DATE_AND_TIME)#[A-Za-z0-9_:+-]+$", re.IGNORECASE)
+
+# Strict IEC-61131 literals
+# TIME: optional sign, one or more duration components (D, H, M, S, MS)
+RE_TIME = re.compile(
+    r"^(T|TIME)#[+-]?(?:\d+D)?(?:\d+H)?(?:\d+M)?(?:\d+S)?(?:\d+MS)?$", re.IGNORECASE
+)
+
+# DATE: YYYY-MM-DD
+RE_DATE = re.compile(
+    r"^(D|DATE)#[0-9]{4}-[0-9]{2}-[0-9]{2}$", re.IGNORECASE
+)
+
+RE_TOD = re.compile(
+    r"^(TOD|TIME_OF_DAY)#(?:[01]?\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?$",
+    re.IGNORECASE,
+)
+
+# DATE_AND_TIME: YYYY-MM-DD-HH:MM:SS(.mmm optional)
+RE_DT = re.compile(
+    r"^(DT|DATE_AND_TIME)#[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-2][0-9]:[0-5][0-9]:[0-5][0-9](?:\.\d{1,3})?$",
+    re.IGNORECASE,
+)
 
 # IEC base-specific (hex, bin) e.g., 16#FF, 2#1010
 RE_BASED_INT = re.compile(r"^(2|8|10|16)#[0-9A-Fa-f_]+$")
@@ -161,11 +180,11 @@ def literal_type(tok: str) -> Optional[str]:
     if RE_BOOL.fullmatch(s):
         return "BOOL"
     if RE_INT.fullmatch(s) or RE_BASED_INT.fullmatch(s):
-        return "INT"  # widthless integer; assignable to any INT_FAMILY
+        return "INT"
     if RE_REAL.fullmatch(s):
         return "REAL"
     if RE_STR.fullmatch(s):
-        # Choose STRING for both '\'...\'' and "..."
+        
         return "STRING"
     if RE_TIME.fullmatch(s):
         return "TIME"
@@ -179,62 +198,40 @@ def literal_type(tok: str) -> Optional[str]:
 
 # ====================== Expression Parsing / Typing ======================
 
-# Operators by precedence (low to high split)
 LOGICAL_OR = ["OR"]
 LOGICAL_AND = ["AND"]
-# Use single '=' as equality operator (we'll normalize '==' -> '=' in input)
+
 COMPARE_OPS = ["<=", ">=", "<>", "!=", "=", "<", ">"]
 ADD_OPS = ["+", "-"]
 MUL_OPS = ["*", "/"]
-UNARY_OPS = ["NOT", "+", "-"]  # (kept for reference, handling is token-aware below)
+UNARY_OPS = ["NOT", "+", "-"]  
 
 
 def normalize_expr(text: str) -> str:
-    """
-    Normalize alternate operator spellings into canonical ST tokens used by the validator:
-      - '==' -> '='
-      - '&&', '&' -> ' AND '
-      - '||', '|' -> ' OR '
-      - '!=' -> '<>' (or keep '!=' as alternative)
-      - '!' -> 'NOT '  (when used as logical negation)
-    Also rejects ternary usage with '?' or ':' (user asked to disallow it).
-    Normalization preserves ':=' (assignment) by not splitting or changing it.
-    """
     if text is None:
         return ""
     e = str(text)
 
-    # Reject ternary operators outright
-    if "?" in e or ":" in e:
-        # If ':' only appears as part of type/struct syntax or indexing, this function is called on
-        # expression strings (conditions). For simplicity we disallow ternary tokens presence.
+    if "?" in e and ":" in e:
         raise ValueError("Ternary operator ('?:') not allowed in expressions/conditions")
 
-    # Normalize equality forms
     e = e.replace("==", "=")
 
-    # Normalize inequality '!=' to '<>' (IEC often uses <>; keep both allowed but canonicalize)
     e = e.replace("!=", "<>")
 
-    # Normalize logical connectors (note: do these replacements before single '!' handling)
-    # Replace && and || with words (use spaces to aid top-level splitting)
     e = e.replace("&&", " AND ").replace("||", " OR ")
-    # Single-character & and | might be accidental; map them as well
+    
     e = e.replace("&", " AND ").replace("|", " OR ")
 
-    # Replace logical not '!' with 'NOT ' but avoid replacing '!=' already handled
-    # Use regex to replace '!' that is not directly part of '<>' (we already changed '!=' to '<>')
-    # Simple approach: replace any standalone '!' occurrences with 'NOT '
     e = re.sub(r'(?<![<>=:])!(?![=])', ' NOT ', e)
 
-    # Normalize multiple spaces
+    
     e = re.sub(r"\s+", " ", e).strip()
     return e
 
 def strip_parens(expr: str) -> str:
     e = expr.strip()
     while e.startswith("(") and e.endswith(")"):
-        # ensure they match at top-level
         depth = 0
         ok = True
         for i,ch in enumerate(e):
@@ -257,19 +254,18 @@ def split_top(expr: str, ops: List[str]) -> Optional[Tuple[str, str, str]]:
     i = len(e) - 1
 
     def is_boundary(idx: int, length: int) -> bool:
-        # Ensure operator at [idx-length+1:idx+1] has token boundaries
         start = idx - length + 1
         before = e[start-1] if start-1 >= 0 else ""
         after = e[idx+1] if idx+1 < len(e) else ""
         def is_id_char(ch: str) -> bool:
             return ch.isalnum() or ch == "_"
-        # before should not be identifier char
+        
         if is_id_char(before):
             return False
-        # after should not be identifier char
+        
         if is_id_char(after):
             return False
-        # Also avoid splitting inside ':=' by disallowing ':' as boundary neighbor
+        
         if before == ':' or after == ':':
             return False
         return True
@@ -281,7 +277,6 @@ def split_top(expr: str, ops: List[str]) -> Optional[Tuple[str, str, str]]:
         if ch == ']': depth_b += 1; i -= 1; continue
         if ch == '[': depth_b -= 1; i -= 1; continue
         if depth_p == 0 and depth_b == 0:
-            # try multi-char ops first by longest first
             for op in sorted(ops, key=len, reverse=True):
                 L = len(op)
                 start = i - L + 1
@@ -300,15 +295,15 @@ def peel_array_once(dt: str) -> Optional[str]:
 
 
 def get_struct_field_type(dt: str, field: str, fb_defs: Dict[str, Dict[str, Any]]) -> Optional[str]:
-    # If dt is a STRUCT type, parse its fields
+    
     if is_struct(dt):
         ok, msg, fields = parse_struct_fields(dt)
         if not ok:
             return None
         return fields.get(field)
-    # If dt is a user-defined FB type, allow accessing its pins as members
+    
     if dt in fb_defs:
-        # outputs and inputs are both addressable members
+        
         if field in fb_defs[dt]["outputs"]:
             return fb_defs[dt]["outputTypes"].get(field)
         if field in fb_defs[dt]["inputs"]:
@@ -319,7 +314,7 @@ def get_struct_field_type(dt: str, field: str, fb_defs: Dict[str, Dict[str, Any]
 def normalize_string_family(dt: str) -> str:
     m = RE_STRING_T.fullmatch(dt.strip())
     if m:
-        return m.group(1).upper()  # STRING or WSTRING
+        return m.group(1).upper() 
     return dt.strip()
 
 
@@ -349,32 +344,30 @@ def type_assignable(expected: str, actual: str) -> bool:
     E = uc(normalize_string_family(expected))
     A = uc(normalize_string_family(actual))
 
-    # ANY* generics accept anything
+    
     if E in {"ANY","ANY_DERIVED","ANY_ELEMENTARY","ANY_MAGNITUDE",
              "ANY_NUM","ANY_REAL","ANY_INT","ANY_BIT","ANY_STRING","ANY_DATE"}:
         return True
 
-    # Exact or same family rules
+    
     if E == A:
         return True
 
-    # Integer family accepts any integer literal/var
+    
     if E in INT_FAMILY and A in INT_FAMILY:
         return True
 
-    # REAL/LREAL accept INT-family
+    
     if E in REAL_FAMILY and (A in REAL_FAMILY or A in INT_FAMILY):
         return True
 
-    # STRING[n] compatible with STRING/WSTRING family
     if is_string_type(expected) and family_of(actual) == "STRING":
         return True
 
-    # CHAR/WCHAR only self
     if E in CHAR_FAMILY and A in CHAR_FAMILY and E == A:
         return True
 
-    # Date/Time exact types only
+    
     if E in {"TIME","DATE","TIME_OF_DAY","DATE_AND_TIME"}:
         return E == A
 
@@ -396,18 +389,17 @@ def resolve_member_type(var_name: str, var_types: Dict[str, str], fb_defs: Dict[
         return None
     t = var_types[base]
     rest = s[len(base):]
-    # Iterate over .field or [index]
     for m in MEMBER_TOKEN.finditer(rest):
         token = m.group(0)
         if token.startswith("["):
-            # index -> peel one array dimension
+            
             elem = peel_array_once(t)
             if not elem:
                 return None
             t = elem
         elif token.startswith("."):
             field = token[1:]
-            # If current type is an FB instance type, allow pin access
+            
             ftype = get_struct_field_type(t, field, fb_defs)
             if not ftype:
                 return None
@@ -425,12 +417,11 @@ def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, D
     if not e:
         return None
 
-    # literals
+    
     lit = literal_type(e)
     if lit:
         return lit
 
-    # binary splits by precedence
     for ops in (LOGICAL_OR, LOGICAL_AND, COMPARE_OPS, ADD_OPS, MUL_OPS):
         sp = split_top(e, ops)
         if sp:
@@ -443,66 +434,59 @@ def infer_expr_type(expr: str, var_types: Dict[str, str], functions: Dict[str, D
             if uop in ("OR", "AND"):
                 return "BOOL" if (lt == "BOOL" and rt == "BOOL") else None
             if uop in ("<=", ">=", "<>", "!", "!=", "=", "<", ">"):
-                # comparisons → result must be BOOL when types compatible
-                # numeric
                 if (is_numeric(lt) and is_numeric(rt)):
                     return "BOOL"
                 fam_l = family_of(lt)
                 fam_r = family_of(rt)
-                # time/date families must match exactly and require matching literal types when literal used
+                
                 if fam_l == fam_r and fam_l in {"STRING","BOOL","TIME","DATE","TIME_OF_DAY","DATE_AND_TIME","CHAR"}:
                     return "BOOL"
                 return None
             if uop in ("+", "-", "*", "/"):
-                # numeric arithmetic
                 if is_numeric(lt) and is_numeric(rt):
                     if lt in REAL_FAMILY or rt in REAL_FAMILY or lt == "REAL" or rt == "REAL":
                         return "REAL"
-                    # both integer families -> keep integer family
+                    
                     return "INT"
-                # string concatenation
                 if uop == "+" and family_of(lt) == family_of(rt) == "STRING":
                     return "STRING"
                 return None
 
-    # unary NOT / +/- (token-aware)
-    # Handle NOT first (as a keyword)
     m_not = re.match(r"^(?i:NOT)\b(.*)$", e)
     if m_not:
         rest = m_not.group(1).strip()
         t = infer_expr_type(rest, var_types, functions, fb_defs)
         return "BOOL" if t == "BOOL" else None
-    # Handle leading + or - as unary
+    
     if e.startswith("+") or e.startswith("-"):
         rest = e[1:].strip()
         t = infer_expr_type(rest, var_types, functions, fb_defs)
         return t if (t is not None and is_numeric(t)) else None
 
-    # function call in expression: name(args)
+    
     mfunc = re.match(rf"^({IDENT})\((.*)\)$", e)
     if mfunc:
         fname = mfunc.group(1)
         if fname in functions:
             return functions[fname].get("returnType")
-        # Unknown function -> cannot infer
+        
         return None
 
-    # variable/member reference
+    
     mvar = re.match(rf"^{IDENT}(?:\[[^\]]*\]|\.[A-Za-z_][A-Za-z0-9_]*)*\s*$", e)
     if mvar:
         t = resolve_member_type(e, var_types, fb_defs)
-        # If not resolvable but base exists, return its type
+        
         if t: return t
         base = base_var_name(e)
         if base in var_types:
             return var_types[base]
-        # Heuristic: unknown bare word -> STRING (to match legacy behavior)
+        
         if BARE_WORD_AS_STRING:
             if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", e) and base not in var_types:
                 return "STRING"
         return None
 
-    # Fallback: unknown token -> if heuristic on, STRING
     if BARE_WORD_AS_STRING:
         if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", e):
             return "STRING"
@@ -532,7 +516,6 @@ def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dic
 
     e = strip_parens(e_norm)
 
-    # Handle OR/AND recursively
     sp = split_top(e, LOGICAL_OR)
     if sp:
         l, _, r = sp
@@ -550,7 +533,6 @@ def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dic
         if not ok: return False, msg
         return True, ""
 
-    # Comparison operators
     sp = split_top(e, COMPARE_OPS)
     if sp:
         L, op, R = sp
@@ -562,14 +544,11 @@ def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dic
         fam_l = family_of(lt)
         fam_r = family_of(rt)
 
-        # TIME/DATE/TOD/DT must match exactly
         if _is_time_family(fam_l) or _is_time_family(fam_r):
-            # both sides must be same family
             if fam_l != fam_r:
-                # check if the literal side is correctly typed
                 l_lit = literal_type(strip_parens(L))
                 r_lit = literal_type(strip_parens(R))
-                # If left is time-family but right is a literal, verify literal matches
+                
                 if _is_time_family(fam_l) and (r_lit is None or family_of(r_lit) != fam_l):
                     return False, f"{fam_l} comparison requires a {fam_l} literal (e.g., T#1S) or {fam_l}-typed expression"
                 if _is_time_family(fam_r) and (l_lit is None or family_of(l_lit) != fam_r):
@@ -577,7 +556,6 @@ def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dic
                 return False, f"Incompatible types for comparison: {lt} {op} {rt}"
             return True, ""
 
-        # STRING family: if comparing to a literal, it must be a quoted string
         if fam_l == "STRING" or fam_r == "STRING":
             l_lit = literal_type(strip_parens(L))
             r_lit = literal_type(strip_parens(R))
@@ -587,17 +565,17 @@ def validate_condition_expr(expr: str, var_types: Dict[str, str], functions: Dic
                 return True, ""
             return False, f"Incompatible types for comparison: {lt} {op} {rt}"
 
-        # Numeric (INT/REAL) – allow mixing (INT vs REAL)
+
         if is_numeric(lt) and is_numeric(rt):
             return True, ""
 
-        # BOOL/CHAR allow only same family
+        
         if fam_l == fam_r and fam_l in {"BOOL","CHAR"}:
             return True, ""
 
         return False, f"Incompatible types for comparison: {lt} {op} {rt}"
 
-    # No explicit comparison: ensure whole expr is BOOL
+    
     t = infer_expr_type(e, var_types, functions, fb_defs)
     if t == "BOOL":
         return True, ""
@@ -667,7 +645,6 @@ def stmtChecker(stmt: dict,
         loop_scope = set(vars_in_scope)
         if it:
             loop_scope.add(it)
-            # iterator is INT-family (commonly INT); we add as INT for typing of expressions using it
             if it not in var_types:
                 var_types[it] = "INT"
         for s in stmt.get("body", []):
@@ -701,7 +678,7 @@ def stmtChecker(stmt: dict,
         expected = functions[fname]["inputs"]
         if len(args) != len(expected):
             return False, f"Function '{fname}' arg count mismatch (got {len(args)}, expected {len(expected)})"
-        # Type-check args against declared input types when available
+        
         in_types = functions[fname].get("inputTypes", [])
         for a, et in zip(args, in_types):
             at = infer_expr_type(a, var_types, functions, fb_defs)
@@ -721,21 +698,21 @@ def stmtChecker(stmt: dict,
             inst_type = var_types.get(inst)
             fb_name = inst_type
         elif inst in fb_defs:
-            fb_name = inst  # direct FB type invocation (no instance variable)
+            fb_name = inst 
             inst_type = None
         else:
             return False, f"fbCall instance '{inst}' is not declared and no FB type named '{inst}' found"
 
         U = uc(fb_name) if fb_name else uc(inst_type or "")
 
-        # User-defined FB
+
         if fb_name in fb_defs:
             sig = fb_defs[fb_name]
-            # inputs
+            
             for k, v in stmt.get("inputs", {}).items():
                 if k not in sig["inputs"]:
                     return False, f"fbCall '{inst}': unknown input '{k}' for FB '{fb_name}'"
-                # type check if we know input type
+                
                 etype = sig["inputTypes"].get(k)
                 if etype:
                     at = infer_expr_type(v, var_types, functions, fb_defs)
@@ -746,17 +723,17 @@ def stmtChecker(stmt: dict,
                     else:
                         if not type_assignable(etype, at):
                             return False, f"fbCall '{inst}': input '{k}' expects {etype}, got {at}"
-            # outputs
+            
             for k, v in stmt.get("outputs", {}).items():
                 if k not in sig["outputs"]:
                     return False, f"fbCall '{inst}': unknown output '{k}' for FB '{fb_name}'"
                 base = base_var_name(v)
-                # target may be an instance member (e.g., C1.CV) or program var
+                
                 if base not in vars_in_scope:
-                    # allow if base equals inst (when inst is a variable and target is inst.member)
+                    
                     if not (inst_is_var and base == inst):
                         return False, f"fbCall '{inst}': output '{k}' maps to undeclared '{v}'"
-                # type check if we know output type
+                
                 otype = sig["outputTypes"].get(k)
                 if otype:
                     t_target = resolve_member_type(v, var_types, fb_defs)
@@ -766,7 +743,6 @@ def stmtChecker(stmt: dict,
                         return False, f"fbCall '{inst}': output '{k}' of type {otype} not assignable to {t_target}"
             return True, ""
 
-        # Built-in FB – if we know pins, enforce
         if U in FB_PIN_TYPES:
             pins = FB_PIN_TYPES[U]
             for k, v in stmt.get("inputs", {}).items():
@@ -794,7 +770,7 @@ def stmtChecker(stmt: dict,
                 if not type_assignable(t_target, otype):
                     return False, f"fbCall '{inst}': output '{k}' of type {otype} not assignable to {t_target}"
             return True, ""
-        # Unknown built-in – only existence checks
+
         for k, v in stmt.get("inputs", {}).items():
             if not literal_type(v):
                 base = base_var_name(v)
@@ -807,33 +783,40 @@ def stmtChecker(stmt: dict,
         return True, ""
 
     if typ == "return":
-        # Return expression typing will be verified in function validation with expected type
         return True, ""
-
-    # Unknown or empty -> allow (future constructs)
     return True, ""
 
-def load_device_variables(mongo_uri: str, db_name: str, collection_name: str) -> Dict[str, str]:
-    """Fetch all device variables {name: datatype} from MongoDB."""
-    client = MongoClient(mongo_uri)
-    coll = client[db_name][collection_name]
-    vars_from_db = {}
-    for doc in coll.find():
-        name = doc.get("deviceName")
-        datatype = doc.get("dataType")
-        if name and datatype:
-            vars_from_db[name] = datatype.upper()
-    print(vars_from_db)
-    return vars_from_db
+
+def load_device_variables() -> Dict[str, str]:
+    """Load device variables from a local JSON file using the absolute path."""
+    
+    file_path = r"D:/ABB/AI_Integration/kb/templates/variables.json"
+    vars_from_file = {}
+
+    try:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Error: The file '{file_path}' does not exist.")
+            
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+            for item in data:
+                name = item.get("deviceName")
+                datatype = item.get("dataType")
+                if name and datatype:
+                    vars_from_file[name.strip()] = datatype.upper()
+
+    except FileNotFoundError as e:
+        print(e)
+        return {}
+    except json.JSONDecodeError:
+        print(f"Error: The file '{file_path}' is not a valid JSON file.")
+        return {}
+    return vars_from_file
 
 
-def validator(intermediate: List[Dict[str, Any]],
-              mongo_uri: str = "mongodb+srv://natrajrakul_db_user:kvxWYOeQXDOc0j7n@converter.wtd1klj.mongodb.net/?retryWrites=true&w=majority",
-              db_name: str = "iec_code_generator",
-              collection_name: str = "variables") -> Tuple[bool, str]:
+def validator(intermediate: List[Dict[str, Any]]) -> Tuple[bool, str]:
 
-    # Load actual device variables from DB
-    device_vars = load_device_variables(mongo_uri, db_name, collection_name)
+    device_vars = load_device_variables()
     if not device_vars:
         return False, "No device variables found in DB. Cannot validate."
 
@@ -841,7 +824,7 @@ def validator(intermediate: List[Dict[str, Any]],
     fb_defs: Dict[str, Dict[str, Any]] = {}
     known_types = set(BASE_SCALAR_TYPES) | set(BUILTIN_FB_TYPES)
 
-    # ---------------- Pass 1: Collect signatures (functions + FBs + add FB names to known_types) ----------------
+    # ---------------- Pass 1: Collects signatures (functions + FBs + add FB names to known_types) ----------------
     for block in intermediate:
         key = list(block.keys())[0]
 
@@ -859,7 +842,6 @@ def validator(intermediate: List[Dict[str, Any]],
             fbname = fb.get("name")
             if not fbname:
                 return False, "FunctionBlock missing name"
-            # Map pins and locals -> types
             fb_defs[fbname] = {
                 "inputs": [i["name"] for i in fb.get("inputs", [])],
                 "outputs": [o["name"] for o in fb.get("outputs", [])],
@@ -867,18 +849,16 @@ def validator(intermediate: List[Dict[str, Any]],
                 "inputTypes": {i["name"]: i["datatype"] for i in fb.get("inputs", [])},
                 "outputTypes": {o["name"]: o["datatype"] for o in fb.get("outputs", [])},
             }
-            known_types.add(fbname)  # FB names are also valid types
+            known_types.add(fbname)
 
-    # ---------------- Pass 2: Validate blocks ----------------
+    # ---------------- Pass 2: Validates blocks ----------------
     for block in intermediate:
         blockType = list(block.keys())[0]
         if blockType not in ("function", "functionBlock", "program"):
             return False, f"Invalid block type: {blockType}"
 
-        # ---------------- Validate Functions ----------------
         if blockType == "function":
             f = block["function"]
-            # validate input types + return type
             for dt in [*f.get("inputs", []), {"datatype": f.get("returnType")}]:
                 ok, msg = validate_datatype(dt["datatype"], known_types)
                 if not ok:
@@ -897,10 +877,8 @@ def validator(intermediate: List[Dict[str, Any]],
                     if not ok:
                         return False, msg
 
-        # ---------------- Validate Function Blocks ----------------
         elif blockType == "functionBlock":
             fb = block["functionBlock"]
-            # validate interface/locals types
             for arr, label in (("inputs", "input"), ("outputs", "output"), ("locals", "local")):
                 for item in fb.get(arr, []):
                     ok, msg = validate_datatype(item["datatype"], known_types)
@@ -921,7 +899,6 @@ def validator(intermediate: List[Dict[str, Any]],
                 if not ok:
                     return False, msg
 
-        # ---------------- Validate Programs ----------------
         elif blockType == "program":
             prog = block["program"]
             if "declarations" not in prog:
@@ -929,28 +906,22 @@ def validator(intermediate: List[Dict[str, Any]],
 
             scope: set = set()
             var_types: Dict[str, str] = {}
-
-            # Process declarations with external DB validation
             for d in prog.get("declarations", []):
                 vname, vtype = d["name"], d["datatype"]
 
-                # validate datatype
                 ok, msg = validate_datatype(vtype, known_types)
                 if not ok:
                     return False, f"Program '{prog['name']}' declaration '{vname}': {msg}"
 
-                # Check existence in external DB
                 if vname not in device_vars:
                     return False, f"Variable '{vname}' not found in device specifications"
 
-                # Check type consistency with DB
                 if device_vars[vname] != vtype.upper():
                     return False, f"Type mismatch for '{vname}': DB has {device_vars[vname]}, JSON declares {vtype}"
 
                 scope.add(vname)
                 var_types[vname] = device_vars[vname]
 
-            # Validate program statements
             for s in prog.get("statements", []):
                 ok, msg = stmtChecker(s, scope, functions, fb_defs, var_types)
                 if not ok:

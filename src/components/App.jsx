@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Users from './users.jsx';
+import { IoCopyOutline } from "react-icons/io5";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('main');
@@ -119,7 +120,7 @@ export default function App() {
           {generatedCode && (<>
             
             <div className="code-box">
-              <h2 className="code-title">Generated IEC 61131-3 Structured Text  <button type='button' onClick={copier} className='copy-button'><img src="src\assets\copy.png" alt='Copy Button' width="20px"/></button></h2>
+              <h2 className="code-title">Generated IEC 61131-3 Structured Text  <button type='button' onClick={copier} className='btn-primary btn-copy'><IoCopyOutline /></button></h2>
               <pre className="code-block">
                 <code className="codeBox">{generatedCode}</code>
               </pre>

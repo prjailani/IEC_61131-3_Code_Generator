@@ -107,6 +107,19 @@ body {
 .btn-primary:not(:disabled):hover {
   background-color: var(--accent-primary-hover);
 }
+.btn-copy {
+  padding: 0.6rem 1.25rem;
+  font-weight: 700;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  margin-left: 20px;
+  transition: transform 0.1s ease-out, background-color 0.1s ease;
+}
+.btn-copy:active {
+  background-color: #555; /* Change background color when clicked */
+  transform: scale(0.88); /* Slightly shrink the button */
+}
 
 .btn-danger {
     background-color: var(--danger);
@@ -290,6 +303,7 @@ body {
     font-weight: 600;
 }
 
+
 .save-all-container {
   display: flex;
   justify-content: flex-end;
@@ -393,4 +407,10 @@ body {
     box-shadow: 0 0 0 30px var(--code-bg) inset !important;
     transition: background-color 5000s ease-in-out 0s;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+.copy-button{
+  padding: 0.8rem ;
+  background-color: #2dd4bf;
+  border: #000000;
+  border-radius: 10px;
 }

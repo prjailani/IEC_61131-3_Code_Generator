@@ -8,20 +8,13 @@ import json
 from pymongo import MongoClient
 import re 
 
+
 # Make sure these imports are correct for your project
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
 from AI_Integration.main import generate_IEC_JSON, regenerate_IEC_JSON
 from validator import validator
 from generator import generator
-
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://natrajrakul_db_user:kvxWYOeQXDOc0j7n@converter.wtd1klj.mongodb.net/?retryWrites=true&w=majority&appName=Converter")
 DB_NAME = "iec_code_generator" 
@@ -35,35 +28,18 @@ try:
 except Exception as e:
     print(f"Failed to connect to MongoDB: {e}")
     client = None
-    variables_collection = None
-# --- END: MONGODB CONFIGURATION ---
+    variables_collection=None
 
 
-# def fetch_variables():
-#     """
-#     Fetches all variable documents from the MongoDB collection.
-    
-#     Returns:
-#         list: A list of variable documents.
-#     """
-#     if variables_collection is None:
-#         print("MongoDB collection is not initialized.")
-#         return []
-    
-#     try:
-#         variables = list(variables_collection.find({}))
-#         for i in variables:
-#             del i['_id']
-#             del i['id']
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-#         with open("./AI_Integration/kb/templates/variables.json","w") as f:
-#             f.write(json.dumps(variables,indent=2))
-#         return variables
-#     except Exception as e:
-#         print(f"Error fetching variables from MongoDB: {e}")
-#         return []
 
-# fetch_variables()
 
 @app.get("/home")
 def root():
@@ -77,7 +53,7 @@ class Variable(BaseModel):
     dataType: str
     range: str
     MetaData: str
-    id: str = None
+    id: str = None # Make id optional for existing documents
 
 class SaveVariablesRequest(BaseModel):
     variables: list[Variable]
@@ -97,6 +73,7 @@ def generateCode(body:NarrativeRequest):
         print("\n\n\n\n")
         intermediate = regenerate_IEC_JSON(body.narrative ,response[1],intermediate)
         response = validator(json.loads(intermediate))
+    print(intermediate)
     if(response[0]):
         code = generator(json.loads(intermediate))
         
