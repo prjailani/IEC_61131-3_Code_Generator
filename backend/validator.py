@@ -790,7 +790,7 @@ def stmtChecker(stmt: dict,
 def load_device_variables() -> Dict[str, str]:
     """Load device variables from a local JSON file using the absolute path."""
     
-    file_path = r"D:/ABB/AI_Integration/kb/templates/variables.json"
+    file_path = r".././AI_Integration/kb/templates/variables.json"
     vars_from_file = {}
 
     try:
