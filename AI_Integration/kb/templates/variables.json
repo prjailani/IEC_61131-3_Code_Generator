@@ -1,0 +1,62 @@
+[
+  {
+    "MetaData": "This is the BathRoom light",
+    "dataType": "BOOL",
+    "deviceName": "BathRoom_Light",
+    "range": ""
+  },
+  {
+    "MetaData": "Hall Fan",
+    "dataType": "INT",
+    "deviceName": "fan",
+    "range": "0-5"
+  },
+  {
+    "MetaData": "Brightness Percent",
+    "dataType": "INT",
+    "deviceName": "Light",
+    "range": "1-100"
+  },
+  {
+    "MetaData": "In the Master Bedroom",
+    "dataType": "INT",
+    "deviceName": "AC_1",
+    "range": "16-30"
+  },
+  {
+    "MetaData": "In the Hall ",
+    "dataType": "INT",
+    "deviceName": "AC_2",
+    "range": "16-30"
+  },
+  {
+    "MetaData": "In the Master bedroom 2",
+    "dataType": "INT",
+    "deviceName": "AC_3",
+    "range": "16-30"
+  },
+  {
+    "MetaData": "On/off Control",
+    "dataType": "BOOL",
+    "deviceName": "Washing_Machine",
+    "range": ""
+  },
+  {
+    "MetaData": "Smart Door Security System",
+    "dataType": "BOOL",
+    "deviceName": "Door_lock",
+    "range": ""
+  },
+  {
+    "MetaData": "Time Control",
+    "dataType": "TIME",
+    "deviceName": "Time",
+    "range": "0-24"
+  },
+  {
+    "MetaData": "On/off",
+    "dataType": "BOOL",
+    "deviceName": "Bulb",
+    "range": ""
+  }
+]

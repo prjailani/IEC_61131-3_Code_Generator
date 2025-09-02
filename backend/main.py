@@ -39,31 +39,31 @@ except Exception as e:
 # --- END: MONGODB CONFIGURATION ---
 
 
-def fetch_variables():
-    """
-    Fetches all variable documents from the MongoDB collection.
+# def fetch_variables():
+#     """
+#     Fetches all variable documents from the MongoDB collection.
     
-    Returns:
-        list: A list of variable documents.
-    """
-    if variables_collection is None:
-        print("MongoDB collection is not initialized.")
-        return []
+#     Returns:
+#         list: A list of variable documents.
+#     """
+#     if variables_collection is None:
+#         print("MongoDB collection is not initialized.")
+#         return []
     
-    try:
-        variables = list(variables_collection.find({}))
-        for i in variables:
-            del i['_id']
-            del i['id']
+#     try:
+#         variables = list(variables_collection.find({}))
+#         for i in variables:
+#             del i['_id']
+#             del i['id']
 
-        with open("./AI_Integration/kb/templates/variables.json","w") as f:
-            f.write(json.dumps(variables,indent=2))
-        return variables
-    except Exception as e:
-        print(f"Error fetching variables from MongoDB: {e}")
-        return []
+#         with open("./AI_Integration/kb/templates/variables.json","w") as f:
+#             f.write(json.dumps(variables,indent=2))
+#         return variables
+#     except Exception as e:
+#         print(f"Error fetching variables from MongoDB: {e}")
+#         return []
 
-fetch_variables()
+# fetch_variables()
 
 @app.get("/home")
 def root():
@@ -84,7 +84,7 @@ class SaveVariablesRequest(BaseModel):
 
 @app.post("/generate-code")
 def generateCode(body:NarrativeRequest):
-    max_attempts = 5
+    max_attempts = 2
     intermediate = generate_IEC_JSON(body.narrative)
     response = validator(json.loads(intermediate))
 
