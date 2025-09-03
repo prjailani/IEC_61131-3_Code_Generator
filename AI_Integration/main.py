@@ -84,6 +84,7 @@ ReGenerate_System_Instruction =  """
                      DT#2025-09-02-12:30:00
                      DATE_AND_TIME#2025-09-02-23:59:59.999
                      ]   *** this are the valid  time  formate use this like  formate as bestone 
+    - NOTE : IF  NO DEVICENAME FIND FOR USER QUERY [think by you is that device match context or not if else "target ; "NO_DEVICE_FOUND"], NOT MATCH TO RAG DEVICENAME THEN RETURN JSON format INSIDE "NO_DEVICE_FOUND : TRUE"  nothing more
 
     - Always output **pure JSON**, nothing else.
     - The top-level object must be one of: "program", "functionBlock", or "function".
@@ -178,6 +179,7 @@ Generate_System_Instruction = """You are an IEC 61131 Structured Text to JSON tr
                      DT#2025-09-02-12:30:00
                      DATE_AND_TIME#2025-09-02-23:59:59.999
                      ]   *** this are the valid  time  formate use this like  formate as bestone 
+    - NOTE : IF  NO DEVICENAME FIND FOR USER QUERY [think by you is that device match context or not if else "target ; "NO_DEVICE_FOUND"], NOT MATCH TO RAG DEVICENAME THEN RETURN JSON format INSIDE "NO_DEVICE_FOUND : TRUE"  nothing more
     - Always output **pure JSON**, nothing else.
     - The top-level object must be one of: "program", "functionBlock", or "function".
     - Do not explain the code, just return JSON.
@@ -342,5 +344,4 @@ def regenerate_IEC_JSON(user_query, issue, generated_code):
 
 # print(generate_IEC_JSON("Turn on the master betrooms AC'S at 8pm  and set cool at 30  then  close  door"))
 
-# # This will attempt to fix the typo in the function name ("AddNubers" -> "AddNumbers").
 # # print(regenerate_IEC_JSON(user_query, issue, generated_code))
