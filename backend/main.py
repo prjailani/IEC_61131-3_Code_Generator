@@ -9,7 +9,6 @@ from pymongo import MongoClient
 import re 
 
 
-# Make sure these imports are correct for your project
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
 from AI_Integration.main import generate_IEC_JSON, regenerate_IEC_JSON
@@ -41,6 +40,9 @@ app.add_middleware(
 
 
 
+
+
+
 @app.get("/home")
 def root():
     return {"vazhthu":"Vanakkam"}
@@ -53,7 +55,8 @@ class Variable(BaseModel):
     dataType: str
     range: str
     MetaData: str
-    id: str = None # Make id optional for existing documents
+    id: str = None 
+
 
 class SaveVariablesRequest(BaseModel):
     variables: list[Variable]
@@ -81,29 +84,29 @@ def generateCode(body:NarrativeRequest):
     else:
         raise HTTPException(status_code=400, detail=response[1])
 
+
+
+
+
+
+
+
 @app.post("/save-variables")
 def save_variables(body: SaveVariablesRequest):
-    """
-    This endpoint synchronizes the frontend's variables with the MongoDB database.
-    It deletes removed items, updates existing ones, and adds new ones.
-    """
+  
     if not client:
         return {"status": "error", "message": "Database connection failed."}
 
     try:
-        # 1. Get current variables from the database
         db_variables = list(variables_collection.find({}, {"deviceName": 1}))
         db_device_names = {doc["deviceName"] for doc in db_variables}
         
-        # 2. Get device names from the frontend's list
         frontend_device_names = {var.deviceName for var in body.variables}
         
-        # 3. Identify and delete variables that are in the database but not on the frontend
         deleted_names = db_device_names - frontend_device_names
         if deleted_names:
             variables_collection.delete_many({"deviceName": {"$in": list(deleted_names)}})
 
-        # 4. Add or update the variables from the frontend's list
         for var in body.variables:
             query = {"deviceName": {"$regex": f"^{re.escape(var.deviceName)}$", "$options": "i"}}
             variables_collection.update_one(
@@ -117,12 +120,15 @@ def save_variables(body: SaveVariablesRequest):
         print(f"Error synchronizing with database: {e}")
         return {"status": "error", "message": "Failed to save variables to the database."}
 
+
+
+
+
+
+
 @app.post("/upload-variables-json")
 async def upload_variables_json(file: UploadFile = File(...)):
-    """
-    This endpoint receives a JSON file, parses its contents, and saves the
-    variables to a MongoDB database.
-    """
+   
     if not client:
         return {"status": "error", "message": "Database connection failed."}
     
@@ -146,33 +152,35 @@ async def upload_variables_json(file: UploadFile = File(...)):
 
 @app.get("/get-variables")
 def get_variables():
-    """
-    This endpoint retrieves all saved variables from the MongoDB database.
-    """
+  
     if not client:
         return {"status": "error", "message": "Database connection failed."}
 
     try:
-        # Fetch all documents and return them
         variables = list(variables_collection.find({}, {"_id": 0})) 
         return {"status": "ok", "variables": variables}
     except Exception as e:
         print(f"Error retrieving from MongoDB: {e}")
         return {"status": "error", "message": "Failed to retrieve variables from the database."}
 
+
+
+
+
+
+
 @app.delete("/remove-duplicates")
 def remove_duplicates():
-    """
-    Removes all but one of the duplicate variables based on deviceName (case-insensitive).
-    """
+   
+
+
     if not client:
         raise HTTPException(status_code=500, detail="Database connection failed.")
     
     try:
-        # Get all device names
+       
         device_names = [doc["deviceName"] for doc in variables_collection.find({}, {"deviceName": 1})]
         
-        # Keep track of unique device names (case-insensitive)
         seen_names = {}
         for name in device_names:
             lower_name = name.lower()

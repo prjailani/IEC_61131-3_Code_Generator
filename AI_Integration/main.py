@@ -236,7 +236,7 @@ retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 def generate_IEC_JSON(user_query):
 
 
-    template = Generate_System_Instruction         # //  get the System Instruction
+    template = Generate_System_Instruction         
 
     prompt = ChatPromptTemplate.from_template(template)
 
@@ -282,16 +282,6 @@ def regenerate_IEC_JSON(user_query, issue, generated_code):
     result = qa_chain.invoke({"query": query})
 
     return result["result"]
-
-
-
-
-
-
-
-
-
-
 
 #==================================================================================================================
 
