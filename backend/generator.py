@@ -27,7 +27,6 @@ def value_to_st(val: Any) -> str:
         if re.search(r'[\s\+\-\*\/\(\)]', val):
             return val
         return f'"{val}"'
-    # For arrays / dicts, dump JSON-ish (rare for simple ST)
     return json.dumps(val)
 
 def indent_lines(lines: List[str], level: int) -> List[str]:

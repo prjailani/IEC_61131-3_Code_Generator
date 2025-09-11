@@ -31,10 +31,10 @@ It integrates **AI (GPT + RAG)**, a **validation engine**, and a **re-correction
 
 ## Workflow
 
-<img width="3840" height="989" alt="Image" src="https://github.com/user-attachments/assets/58f69b0a-d237-4328-8664-57c8c9751bb4" />
+<!-- <img width="3840" height="989" alt="Image" src="https://github.com/user-attachments/assets/58f69b0a-d237-4328-8664-57c8c9751bb4" /> -->
 
+![Image](https://github.com/user-attachments/assets/f4f76acf-750f-4858-8965-84cff5a5c898)
 
----
 ## Directory Structure
 
 ```
@@ -70,6 +70,15 @@ Root
 
 ```
 ---
+## ScreenShots 
+
+### Home Page 
+<img width="1217" height="924" alt="Image" src="https://github.com/user-attachments/assets/5dd1006c-4269-4166-917b-a5f9442d670a" />
+
+--- 
+### Config Page 
+<img width="1109" height="904" alt="Image" src="https://github.com/user-attachments/assets/1331902c-ffc4-41ac-bc52-ff72295fe290" />
+
 
 ## Authors
 >---

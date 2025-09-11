@@ -193,8 +193,8 @@ Generate_System_Instruction = """You are an IEC 61131 Structured Text to JSON tr
 
 load_dotenv()
 llm = ChatGroq(
-    groq_api_key=os.environ["GROQ_API_KEY2"],
-    model=os.environ.get("GROQ_MODEL_NAME", "llama-3.1-70b-versatile"),
+    groq_api_key=os.environ["GROQ_API_KEY3"],
+    model=os.environ.get("GROQ_MODEL_NAME", "openai/gpt-oss-120b"),
 )
 
 
@@ -234,7 +234,7 @@ retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 def generate_IEC_JSON(user_query):
 
 
-    template = Generate_System_Instruction         # //  get the System Instruction
+    template = Generate_System_Instruction         
 
     prompt = ChatPromptTemplate.from_template(template)
 
@@ -280,16 +280,6 @@ def regenerate_IEC_JSON(user_query, issue, generated_code):
     result = qa_chain.invoke({"query": query})
 
     return result["result"]
-
-
-
-
-
-
-
-
-
-
 
 #==================================================================================================================
 

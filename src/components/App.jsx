@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Users from './users.jsx';
 import { IoCopyOutline } from "react-icons/io5";
-
+// import {Logo} from "./../../public/logo.png"
 export default function App() {
   const [currentPage, setCurrentPage] = useState('main');
   const [narrativeText, setNarrativeText] = useState('');
@@ -70,7 +70,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-
+      {/* <img src ={Logo}  alt ="Logo"/> */}
        <div className="card">
         <div className="switch-container">
           <button onClick={() => setCurrentPage('users')} className="btn btn-secondary">
@@ -79,7 +79,7 @@ export default function App() {
         </div>
 
         <h1 className="title">
-          IEC 61131-3 Code Generator
+         Txt2PLC -  IEC 61131-3 Code Generator
         </h1>
       
         <div>

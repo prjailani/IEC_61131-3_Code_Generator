@@ -1,21 +1,9 @@
 [
   {
-    "MetaData": "This is the BathRoom light",
-    "dataType": "BOOL",
-    "deviceName": "BathRoom_Light",
-    "range": ""
-  },
-  {
     "MetaData": "Hall Fan",
     "dataType": "INT",
     "deviceName": "fan",
     "range": "0-5"
-  },
-  {
-    "MetaData": "Brightness Percent",
-    "dataType": "INT",
-    "deviceName": "Light",
-    "range": "1-100"
   },
   {
     "MetaData": "In the Master Bedroom",
