@@ -56,8 +56,9 @@ export default function App() {
         setError('API response was successful but did not contain the expected "code" data.');
       }
     } catch (e) {
-      setError(`Failed to generate code: ${e.message.split(':').pop().trim()}.`);
-      console.error('There was a problem with the fetch operation:', e);
+      setError(`Failed to generate code: ${e.message.split(':').pop().trim()}`);
+      console.log(e.message.split(':').pop().trim())
+      console.error('There was a problem with the fetch operation:', );
     } finally {
       setIsLoading(false);
     }
