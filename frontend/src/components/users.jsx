@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import LOGO from  '../assets/logo.png'
 
 export default function Users({ onGoBack }) {
   const [variables, setVariables] = useState([]);
@@ -7,6 +8,7 @@ export default function Users({ onGoBack }) {
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+const userId = localStorage.getItem('user_id');
 
   const [newVariableForm, setNewVariableForm] = useState({
     name: '',
@@ -25,7 +27,7 @@ export default function Users({ onGoBack }) {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://127.0.0.1:8000/get-variables/user2915');
+      const response = await fetch(`http://127.0.0.1:8000/get-variables/${userId}`);
       if (!response.ok) {
         const errorData = await response.text();
         throw new Error(`Failed to fetch: ${response.statusText} - ${errorData}`);
@@ -66,7 +68,7 @@ export default function Users({ onGoBack }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          user_id : "user2915",
+          user_id : userId,
           variables: variablesToSend }),
       });
       if (!response.ok) {
@@ -147,18 +149,30 @@ export default function Users({ onGoBack }) {
         setEditingId(variable.id); 
     }
   }
-
+ const handleLogout = () => {
+    if (onLogout) {
+      onLogout();
+    }
+  };
   const filteredVariables = variables.filter(variable =>
     variable.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="app-container">
+        <div className='logo_container'>
+                      <div className="logoplaceholder">
+      
+                  <img src={LOGO} alt="Logo" / >
+                  </div>
+              </div>
       <div className="card">
         <div className="switch-container">
           <button onClick={onGoBack} className="btn btn-secondary">
             Go to Main Page
           </button>
+          <button onClick={handleLogout}  className="btn btn-secondary">Logout</button>
+
         </div>
 
         <h1 className="title">Config Variables</h1>

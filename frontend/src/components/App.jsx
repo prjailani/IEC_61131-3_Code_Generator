@@ -1,32 +1,17 @@
 import React, { useState } from 'react';
 import Users from './users.jsx';
 import { IoCopyOutline } from "react-icons/io5";
+import LOGO from  '../assets/logo.png'
 
 // import {AuthContainer}  from "./LoginRegister.jsx"
-// import {Logo} from "./../../public/logo.png"
-export default function App() {
+export default function App({onLogout}) {
   const [currentPage, setCurrentPage] = useState('main');
   const [narrativeText, setNarrativeText] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   
-  // Default example program structure
-  const PROGRAM = {
-  rungs: [
-    {
-      contacts: [
-        { type: "NO", label: "06:00 Timer" },
-        { type: "NC", label: "19:00 Timer" }
-      ],
-      coil: { label: "Motor Coil" }
-    },
-    {
-      contacts: [{ type: "NO", label: "Start PB" }],
-      coil: { label: "Lamp" }
-    }
-  ]
-};
+  
 
   function copier() {
   var copyText = document.getElementsByClassName("codeBox");
@@ -68,7 +53,9 @@ export default function App() {
 
   if (currentPage === 'users') {
     return <Users onGoBack={() => setCurrentPage('main')} />;
+
   }
+ 
  const handleLogout = () => {
     if (onLogout) {
       onLogout();
@@ -76,7 +63,12 @@ export default function App() {
   };
   return (
     <div className="app-container">
-      {/* <img src ={Logo}  alt ="Logo"/> */}
+         <div className='logo_container'>
+                <div className="logoplaceholder">
+
+            <img src={LOGO} alt="Logo" / >
+            </div>
+        </div>
      
        <div className="card">
         <div className="switch-container">
@@ -85,7 +77,7 @@ export default function App() {
             Go to Variables
           </button>
 
-                          <button onClick={handleLogout}  className="btn btn-secondary">Logout</button>
+          <button onClick={handleLogout}  className="btn btn-secondary">Logout</button>
 
         </div>
 
