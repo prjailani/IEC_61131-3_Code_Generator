@@ -6,7 +6,31 @@ from langchain_community.vectorstores import FAISS
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import RetrievalQA
 from dotenv import load_dotenv 
+import re
+from langchain.prompts import ChatPromptTemplate
+from langchain.chains import LLMChain
 # import Prompts
+# from Prompts import ReGenerate_System_Instruction, Generate_System_Instruction ,QueryRefineInstruction
+
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.retrievers.multi_query import MultiQueryRetriever
+
+
+
+# ---------------------------------
+#     Get credientials Env
+# ---------------------------------
+
+
+load_dotenv()
+llm = ChatGroq(
+    groq_api_key=os.environ["GROQ_API_KEY"],
+    model=os.environ.get("GROQ_MODEL_NAME", "llama-3.3-70b-versatile"),
+)
+
+
+
+
 
 
 
@@ -100,13 +124,6 @@ ReGenerate_System_Instruction =  """
 
 
 
-
-
-
-
-
-
-
 Generate_System_Instruction = """You are an IEC 61131 Structured Text to JSON translator.
     Use the following context from reference docs:
     {context}
@@ -186,43 +203,158 @@ Generate_System_Instruction = """You are an IEC 61131 Structured Text to JSON tr
     - When multiple programs, function blocks, or functions are needed, return an array of objects enclosed in [].
     - When handling with conditional statements, use '=' not '==' for equals condition, do not use ternary operator, use AND instead of & or &&, use OR instead of | or ||, use NOT instead of !.
     """
-# ---------------------------------
-#     Get credientials Env
-# ---------------------------------
 
 
-load_dotenv()
-llm = ChatGroq(
-    groq_api_key=os.environ["GROQ_API_KEY"],
-    model=os.environ.get("GROQ_MODEL_NAME", "llama-3.3-70b-versatile"),
-)
+
+
+QueryRefineInstruction="""
+    You are a Query Refiner AI.
+    - Take the raw user request below.
+    - Rewrite it into a clear, single-paragraph instruction for generating Intermediate code.
+    - Preserve all details, numbers, times, and device names.
+    - Do not add information that wasn’t given.
+    - Fix grammar and structure lightly so it’s understandable.
+    - Output only the rewritten instruction, nothing else.
+
+    User request: {user_input}
+    """
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def refine_user_query(user_input: str) -> str:
+  
+    if not user_input or not user_input.strip():
+        return "Please provide a valid request."
+
+    cleaned = re.sub(r'\s+', ' ', user_input.strip())
+
+    cleaned = re.sub(r'[,;]+', ', ', cleaned)
+    cleaned = re.sub(r'\.+', '.', cleaned)
+
+    cleaned = cleaned[0].upper() + cleaned[1:] if cleaned else cleaned
+
+  
+    rewritten_prompt = (
+        f"user request: {cleaned}."
+    )
+
+    return rewritten_prompt
+
+
+
+def ai_refine_user_query(user_input: str, llm) -> str:
+   
+    template = QueryRefineInstruction
+
+    prompt = ChatPromptTemplate.from_template(template)
+    chain = LLMChain(prompt=prompt, llm=llm)
+
+    refined = chain.run(user_input=user_input)
+    return refined.strip()
+
+
+
+
 
 
 # ================================================================================================================================================
 #                                              RAG Part ( Rag the data  form Knowledge Base KB)
 # ================================================================================================================================================
 
-
-
 def load_docs_from_path(folder_path: str):
-    all_files = glob.glob(os.path.join(folder_path, "**/*.json"), recursive=True)
+    """Load all .json or .txt files as raw strings."""
+    all_files = glob.glob(os.path.join(folder_path, "**/*.*"), recursive=True)
     docs = []
     for f in all_files:
-        with open(f, "r", encoding="utf-8") as infile:
-            docs.append(infile.read())
+        if f.lower().endswith((".json", ".txt")):
+            with open(f, "r", encoding="utf-8") as infile:
+                text = infile.read()
+                docs.append({"text": text, "source": os.path.basename(f)})
     return docs
-
 
 script_directory = os.path.dirname(__file__)
 folder_path = os.path.join(script_directory, "kb")
-docs = load_docs_from_path(folder_path)
+raw_docs = load_docs_from_path(folder_path)
 
-if not docs:
+if not raw_docs:
     raise ValueError("No documents found in KB folder!")
 
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,     # Adjust as needed
+    chunk_overlap=150,   # Helps preserve context across chunks
+    separators=["\n\n", "\n", " ", ""]
+)
+
+chunked_texts = []
+for d in raw_docs:
+    chunks = text_splitter.split_text(d["text"])
+    for i, chunk in enumerate(chunks):
+        chunked_texts.append({
+            "text": chunk,
+            "metadata": {
+                "source": d["source"],
+                "chunk_id": i
+            }
+        })
+
+
+
+
+
+
+
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-vectorstore = FAISS.from_texts(docs, embedding=embeddings)
-retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+texts = [c["text"] for c in chunked_texts]
+metadatas = [c["metadata"] for c in chunked_texts]
+
+vectorstore = FAISS.from_texts(texts, embedding=embeddings, metadatas=metadatas)
+
+# 5️⃣ Create Multi-Query Retriever (basic Self-RAG behavior)
+base_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+retriever = MultiQueryRetriever.from_llm(retriever=base_retriever, llm=llm)
+
+
+
+
+
+
+
+
+
+# def load_docs_from_path(folder_path: str):
+#     all_files = glob.glob(os.path.join(folder_path, "**/*.json"), recursive=True)
+#     docs = []
+#     for f in all_files:
+#         with open(f, "r", encoding="utf-8") as infile:
+#             docs.append(infile.read())
+#     return docs
+
+
+# script_directory = os.path.dirname(__file__)
+# folder_path = os.path.join(script_directory, "kb")
+# docs = load_docs_from_path(folder_path)
+
+# if not docs:
+#     raise ValueError("No documents found in KB folder!")
+
+# embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+# vectorstore = FAISS.from_texts(docs, embedding=embeddings)
+# retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
 
 
@@ -234,7 +366,7 @@ retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 def generate_IEC_JSON(user_query):
 
 
-    template = Generate_System_Instruction         
+    template = Generate_System_Instruction       
 
     prompt = ChatPromptTemplate.from_template(template)
 
@@ -244,6 +376,7 @@ def generate_IEC_JSON(user_query):
         chain_type_kwargs={"prompt": prompt},
     )
 
+    print("\n\n\nHere  is the  qu_chain \n\n", qa_chain, " \n\n")
 
     # print(qa_chain)
 
@@ -275,12 +408,50 @@ def regenerate_IEC_JSON(user_query, issue, generated_code):
         retriever=retriever,
         chain_type_kwargs={"prompt": prompt},
     )
-
+    print("\n\n\nHere  is the  qu_chain \n\n", qa_chain, " \n\n")
     query = "previous user query: " + user_query + "\n\n issue in exiting code : " + issue + " \n\n Already Generated_code : \n" + generated_code
     result = qa_chain.invoke({"query": query})
 
     return result["result"]
 
+
+
+# print(ai_refine_user_query("turn on motor at 6 mornign and  off at  2pm then on the kitchen lgight at 3 pm" ,llm))
+print(refine_user_query("turn on motor at 6 mornign and  off at  2pm then on the kitchen lgight at 3 pm"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
 #==================================================================================================================
 
 #                                             testing Area 

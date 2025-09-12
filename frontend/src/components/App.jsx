@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import Users from './users.jsx';
 import { IoCopyOutline } from "react-icons/io5";
+
+// import {AuthContainer}  from "./LoginRegister.jsx"
 // import {Logo} from "./../../public/logo.png"
 export default function App() {
   const [currentPage, setCurrentPage] = useState('main');
@@ -67,15 +69,24 @@ export default function App() {
   if (currentPage === 'users') {
     return <Users onGoBack={() => setCurrentPage('main')} />;
   }
-
+ const handleLogout = () => {
+    if (onLogout) {
+      onLogout();
+    }
+  };
   return (
     <div className="app-container">
       {/* <img src ={Logo}  alt ="Logo"/> */}
+     
        <div className="card">
         <div className="switch-container">
           <button onClick={() => setCurrentPage('users')} className="btn btn-secondary">
+
             Go to Variables
           </button>
+
+                          <button onClick={handleLogout}  className="btn btn-secondary">Logout</button>
+
         </div>
 
         <h1 className="title">

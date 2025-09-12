@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 
-
 export default function Users({ onGoBack }) {
   const [variables, setVariables] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -10,10 +9,11 @@ export default function Users({ onGoBack }) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const [newVariableForm, setNewVariableForm] = useState({
-    deviceName: '',
+    name: '',
     dataType: 'BOOL',
-    range: '',
-    MetaData: '',
+    min: '',
+    max: '',
+    description: '',
   });
 
   const allDataTypes = [
@@ -34,7 +34,9 @@ export default function Users({ onGoBack }) {
       const variablesWithId = data.variables.map(v => ({ 
         ...v, 
         id: v._id ? v._id.toString() : Date.now() + Math.random(),
-        MetaData: v.MetaData || ''
+        description: v.description || '',
+        min: v.min || '',
+        max: v.max || ''
       }));
       setVariables(variablesWithId);
     } catch (e) {
@@ -51,9 +53,10 @@ export default function Users({ onGoBack }) {
     
     const variablesToSend = variables.map(({ id, ...rest }) => ({
       ...rest,
-      deviceName: rest.deviceName.trim(),
-      range: rest.range ? rest.range.trim() : '',
-      MetaData: rest.MetaData ? rest.MetaData.trim() : '',
+      name: rest.name.trim(),
+      min: rest.min ? rest.min.trim() : '',
+      max: rest.max ? rest.max.trim() : '',
+      description: rest.description ? rest.description.trim() : '',
     }));
 
     try {
@@ -95,28 +98,28 @@ export default function Users({ onGoBack }) {
   };
 
   const addVariableRow = () => {
-    const trimmedDeviceName = newVariableForm.deviceName.trim();
+    const trimmedName = newVariableForm.name.trim();
 
-    if (!trimmedDeviceName) {
+    if (!trimmedName) {
         alert("Device Name cannot be empty.");
         return;
     }
 
     const isDuplicate = variables.some(
-      variable => variable.deviceName.toLowerCase() === trimmedDeviceName.toLowerCase()
+      variable => variable.name.toLowerCase() === trimmedName.toLowerCase()
     );
 
     if (isDuplicate) {
-      alert(`A device with the name "${trimmedDeviceName}" already exists. Please use a unique name.`);
+      alert(`A device with the name "${trimmedName}" already exists. Please use a unique name.`);
       return; 
     }
 
     setVariables([...variables, { 
       id: Date.now().toString(), 
       ...newVariableForm,
-      deviceName: trimmedDeviceName, 
+      name: trimmedName, 
     }]);
-    setNewVariableForm({ deviceName: '', dataType: 'BOOL', range: '', MetaData: '' });
+    setNewVariableForm({ name: '', dataType: 'BOOL', min: '', max: '', description: '' });
   };
   
   const handleInputChange = (id, event) => {
@@ -142,7 +145,7 @@ export default function Users({ onGoBack }) {
   }
 
   const filteredVariables = variables.filter(variable =>
-    variable.deviceName.toLowerCase().includes(searchTerm.toLowerCase())
+    variable.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -166,9 +169,9 @@ export default function Users({ onGoBack }) {
             <form className="add-variable-form" onSubmit={(e) => { e.preventDefault(); addVariableRow(); }}>
                 <input
                     type="text"
-                    name="deviceName"
+                    name="name"
                     placeholder="Device Name"
-                    value={newVariableForm.deviceName}
+                    value={newVariableForm.name}
                     onChange={handleNewVariableInputChange}
                     onBlur={handleNewVariableBlur} 
                     className="input-base"
@@ -183,18 +186,27 @@ export default function Users({ onGoBack }) {
                 </select>
                 <input
                     type="text"
-                    name="range"
-                    placeholder="Range"
-                    value={newVariableForm.range}
+                    name="min"
+                    placeholder="Min"
+                    value={newVariableForm.min}
                     onChange={handleNewVariableInputChange}
                     onBlur={handleNewVariableBlur} 
                     className="input-base"
                 />
                 <input
                     type="text"
-                    name="MetaData"
-                    placeholder="Additional"
-                    value={newVariableForm.MetaData}
+                    name="max"
+                    placeholder="Max"
+                    value={newVariableForm.max}
+                    onChange={handleNewVariableInputChange}
+                    onBlur={handleNewVariableBlur} 
+                    className="input-base"
+                />
+                <input
+                    type="text"
+                    name="description"
+                    placeholder="Description"
+                    value={newVariableForm.description}
                     onChange={handleNewVariableInputChange}
                     onBlur={handleNewVariableBlur} 
                     className="input-base"
@@ -223,8 +235,9 @@ export default function Users({ onGoBack }) {
                   <tr>
                     <th>Device Name</th>
                     <th>Data Type</th>
-                    <th>Range</th>
-                    <th>Additional</th>
+                    <th>Min</th>
+                    <th>Max</th>
+                    <th>Description</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -233,8 +246,8 @@ export default function Users({ onGoBack }) {
                     <tr key={variable.id}>
                       <td>
                         <input
-                          type="text" name="deviceName"
-                          value={variable.deviceName}
+                          type="text" name="name"
+                          value={variable.name}
                           onChange={(e) => handleInputChange(variable.id, e)}
                           onBlur={(e) => handleTableInputBlur(variable.id, e)}
                           className="table-input"
@@ -254,8 +267,8 @@ export default function Users({ onGoBack }) {
                       </td>
                       <td>
                         <input
-                          type="text" name="range"
-                          value={variable.range}
+                          type="text" name="min"
+                          value={variable.min}
                           onChange={(e) => handleInputChange(variable.id, e)}
                           onBlur={(e) => handleTableInputBlur(variable.id, e)} 
                           className="table-input"
@@ -264,8 +277,18 @@ export default function Users({ onGoBack }) {
                       </td>
                       <td>
                         <input
-                          type="text" name="MetaData"
-                          value={variable.MetaData}
+                          type="text" name="max"
+                          value={variable.max}
+                          onChange={(e) => handleInputChange(variable.id, e)}
+                          onBlur={(e) => handleTableInputBlur(variable.id, e)} 
+                          className="table-input"
+                          disabled={editingId !== variable.id}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text" name="description"
+                          value={variable.description}
                           onChange={(e) => handleInputChange(variable.id, e)}
                           onBlur={(e) => handleTableInputBlur(variable.id, e)} 
                           className="table-input"
@@ -285,7 +308,7 @@ export default function Users({ onGoBack }) {
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan="5">
+                      <td colSpan="7">
                         <p className="no-variables-message">
                           {variables.length === 0 
                             ? "No variables found. Add one above to get started." 
@@ -316,3 +339,4 @@ export default function Users({ onGoBack }) {
     </div>
   );
 }
+
