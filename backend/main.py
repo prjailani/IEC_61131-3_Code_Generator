@@ -23,7 +23,6 @@ try:
     client = MongoClient(MONGO_URI)
     db = client[DB_NAME]
     variables_collection = db[COLLECTION_NAME]
-    print("Successfully connected to MongoDB!")
 except Exception as e:
     print(f"Failed to connect to MongoDB: {e}")
     client = None

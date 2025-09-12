@@ -10,7 +10,6 @@ try:
     client = MongoClient(MONGO_URI)
     db = client[DB_NAME]
     variables_collection = db[COLLECTION_NAME]
-    print("Successfully connected to MongoDB!")
 except Exception as e:
     print(f"Failed to connect to MongoDB: {e}")
     client = None
@@ -29,7 +28,7 @@ def fetch_variables():
             del i['_id']
             del i['id']
 
-        with open(".././AI_Integration/kb/templates/variables.json","w") as f:
+        with open("./AI_Integration/kb/templates/variables.json","w") as f:
             f.write(json.dumps(variables,indent=2))
         return variables
     except Exception as e:

@@ -1,36 +1,17 @@
 {
-  "name": "iec-converter",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "concurrently \"vite\" \"cd backend && python fetchvariables.py\" \"cd backend && python -m uvicorn main:app --reload\" ",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@tailwindcss/vite": "^4.1.12",
-    "@xyflow/react": "^12.8.4",
-    "npx": "^10.2.2",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-icons": "^5.5.0",
-    "reactflow": "^11.11.4"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.33.0",
-    "@types/react": "^19.1.10",
-    "@types/react-dom": "^19.1.7",
-    "@vitejs/plugin-react": "^5.0.0",
-    "autoprefixer": "^10.4.21",
-    "concurrently": "^8.0.0",
-    "eslint": "^9.33.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.20",
-    "globals": "^16.3.0",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^3.1.12",
-    "vite": "^7.1.2"
-  }
+    "name": "iec-61131-3-code-generator",
+    "version": "1.0.0",
+    "description": "IEC 61131-3 Code Generator with frontend and backend",
+    "main": "index.js",
+    "scripts": {
+        "dev": "concurrently \"npm --prefix frontend run dev\" \"cd backend && python fetchvariables.py\" \"cd backend && python -m uvicorn main:app --reload\" ",
+        "server": "cd backend && npm start",
+        "client": "cd frontend && npm start",
+        "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install"
+    },
+    "dependencies": {
+        "concurrently": "^8.2.0"
+    },
+    "author": "",
+    "license": "ISC"
 }

@@ -193,8 +193,8 @@ Generate_System_Instruction = """You are an IEC 61131 Structured Text to JSON tr
 
 load_dotenv()
 llm = ChatGroq(
-    groq_api_key=os.environ["GROQ_API_KEY3"],
-    model=os.environ.get("GROQ_MODEL_NAME", "openai/gpt-oss-120b"),
+    groq_api_key=os.environ["GROQ_API_KEY"],
+    model=os.environ.get("GROQ_MODEL_NAME", "llama-3.3-70b-versatile"),
 )
 
 

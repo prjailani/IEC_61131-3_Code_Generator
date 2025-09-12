@@ -18,10 +18,10 @@ dist-ssr
 .idea
 .DS_Store
 *.suo
-.ntvs
+*.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-_pycache_/
+__pycache__/
 *.py[cod]

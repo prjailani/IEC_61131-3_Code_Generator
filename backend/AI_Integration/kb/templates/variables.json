@@ -36,7 +36,7 @@
     "range": ""
   },
   {
-    "MetaData": "Time Control",
+    "MetaData": "Time Control (Clock / Time)",
     "dataType": "TIME",
     "deviceName": "Time",
     "range": "0-24"
@@ -51,6 +51,12 @@
     "MetaData": "In the kitchen",
     "dataType": "BOOL",
     "deviceName": "Oven",
+    "range": ""
+  },
+  {
+    "MetaData": "This is a Timer / Stopwatch",
+    "dataType": "TIME",
+    "deviceName": "Timer",
     "range": ""
   }
 ]
