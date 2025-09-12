@@ -25,18 +25,20 @@ export default function Users({ onGoBack }) {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://127.0.0.1:8000/get-variables');
+      const response = await fetch('http://127.0.0.1:8000/get-variables/user2915');
       if (!response.ok) {
         const errorData = await response.text();
         throw new Error(`Failed to fetch: ${response.statusText} - ${errorData}`);
       }
       const data = await response.json();
+
+      console.log(data.variables)
       const variablesWithId = data.variables.map(v => ({ 
         ...v, 
         id: v._id ? v._id.toString() : Date.now() + Math.random(),
         description: v.description || '',
-        min: v.min || '',
-        max: v.max || ''
+        min: v.minRange || '',
+        max: v.maxRange || ''
       }));
       setVariables(variablesWithId);
     } catch (e) {
@@ -54,8 +56,8 @@ export default function Users({ onGoBack }) {
     const variablesToSend = variables.map(({ id, ...rest }) => ({
       ...rest,
       name: rest.name.trim(),
-      min: rest.min ? rest.min.trim() : '',
-      max: rest.max ? rest.max.trim() : '',
+      minRange: rest.min ? rest.min.trim() : '',
+      maxRange: rest.max ? rest.max.trim() : '',
       description: rest.description ? rest.description.trim() : '',
     }));
 
@@ -63,7 +65,9 @@ export default function Users({ onGoBack }) {
       const response = await fetch('http://127.0.0.1:8000/save-variables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variables: variablesToSend }),
+        body: JSON.stringify({ 
+          user_id : "user2915",
+          variables: variablesToSend }),
       });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -187,7 +191,7 @@ export default function Users({ onGoBack }) {
                 <input
                     type="text"
                     name="min"
-                    placeholder="Min"
+                    placeholder="MinRange"
                     value={newVariableForm.min}
                     onChange={handleNewVariableInputChange}
                     onBlur={handleNewVariableBlur} 
@@ -196,7 +200,7 @@ export default function Users({ onGoBack }) {
                 <input
                     type="text"
                     name="max"
-                    placeholder="Max"
+                    placeholder="MaxRange"
                     value={newVariableForm.max}
                     onChange={handleNewVariableInputChange}
                     onBlur={handleNewVariableBlur} 

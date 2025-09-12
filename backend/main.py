@@ -47,11 +47,15 @@ MONGO_URI = os.getenv(
 DB_NAME = "iec_code_generator"
 COLLECTION_NAME = "Users Credentials"
 
+
+
+
+
 try:
     client = MongoClient(MONGO_URI)
     db = client[DB_NAME]
     variables_collection = db[COLLECTION_NAME]
-    print("Successfully connected to MongoDB!")
+    print("\n\nSuccessfully connected to MongoDB!\n\n")
 except Exception as e:
     print(f"Failed to connect to MongoDB: {e}")
     client = None
@@ -69,8 +73,8 @@ app.add_middleware(
 class Variable(BaseModel):
     name: str
     dataType: str
-    minRange: int
-    maxRange: int
+    minRange: str
+    maxRange: str
     description: str
     tag: Optional[str] = None
 
@@ -155,6 +159,10 @@ def register_user(request: CreateUserRequest):
     except Exception as e:
         print(f"Error registering user: {e}")
         raise HTTPException(status_code=500, detail="Failed to register user")
+    
+
+
+
 
 @app.post("/login")
 def login_user(request: LoginRequest):
@@ -180,28 +188,6 @@ def login_user(request: LoginRequest):
         print(f"Error during login: {e}")
         raise HTTPException(status_code=500, detail="Login failed")
 
-# @app.get("/users/{user_id}")
-# def get_user(user_id: str):
-#     if not client:
-#         raise HTTPException(status_code=500, detail="Database connection failed")
-#     try:
-#         user = variables_collection.find_one({"id": user_id})
-#         if not user:
-#             raise HTTPException(status_code=404, detail="User not found")
-#         user["_id"] = str(user["_id"])
-#         return {"status": "ok", "user": user}
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         print(f"Error fetching user: {e}")
-#         raise HTTPException(status_code=500, detail="Failed to fetch user")
-
-
-
-
-
-
-
 
 
 
@@ -220,6 +206,12 @@ def get_user(user_id: str):
     except Exception as e:
         print(f"Error fetching user: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch user")
+    
+
+
+
+
+
 
 # ----------------- VARIABLE MANAGEMENT -----------------
 @app.get("/get-variables/{user_id}")
@@ -238,13 +230,15 @@ def get_variables(user_id: str):
 
 
 @app.post("/save-variables")
-def save_variables(request: SaveVariablesRequest):
+def save_variables( request: SaveVariablesRequest):
     if not client:
         return {"status": "error", "message": "Database connection failed"}
     try:
         result = variables_collection.update_one(
             {"id": request.user_id},
-            {"$set": {"variables": [var.dict() for var in request.variables]}}
+            {"$set": {"variables": [var.model_dump() for var in request.variables]}},
+            upsert=True
+
         )
         if result.matched_count == 0:
             return {"status": "error", "message": "User not found"}
@@ -260,7 +254,7 @@ def add_variable(request: AddVariableRequest):
     try:
         result = variables_collection.update_one(
             {"id": request.user_id},
-            {"$push": {"variables": request.variable.dict()}}
+            {"$push": {"variables": request.variable.model_dump()}}
         )
         if result.matched_count == 0:
             return {"status": "error", "message": "User not found"}
@@ -286,6 +280,28 @@ def remove_variable(user_id: str, variable_name: str):
     except Exception as e:
         print(f"Error removing variable: {e}")
         raise HTTPException(status_code=500, detail="Failed to remove variable")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -516,7 +532,7 @@ def root():
 #             query = {"deviceName": {"$regex": f"^{re.escape(var.deviceName)}$", "$options": "i"}}
 #             variables_collection.update_one(
 #                 query,
-#                 {"$set": var.dict()},
+#                 {"$set": var.model_dump()},
 #                 upsert=True
 #             )
         
