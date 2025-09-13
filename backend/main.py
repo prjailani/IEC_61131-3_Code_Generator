@@ -286,134 +286,6 @@ def save_variables( request: SaveVariablesRequest):
 
 
 
-# @app.post("/add-variable")
-# def add_variable(request: AddVariableRequest):
-#     if not client:
-#         return {"status": "error", "message": "Database connection failed"}
-#     try:
-#         result = variables_collection.update_one(
-#             {"id": request.user_id},
-#             {"$push": {"variables": request.variable.model_dump()}}
-#         )
-#         if result.matched_count == 0:
-#             return {"status": "error", "message": "User not found"}
-#         return {"status": "ok", "message": "Variable added successfully"}
-#     except Exception as e:
-#         print(f"Error adding variable: {e}")
-#         return {"status": "error", "message": "Failed to add variable"}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# @app.delete("/remove-variable")
-# def remove_variable(user_id: str, variable_name: str):
-#     if not client:
-#         raise HTTPException(status_code=500, detail="Database connection failed")
-#     try:
-#         result = variables_collection.update_one(
-#             {"id": user_id},
-#             {"$pull": {"variables": {"name": variable_name}}}
-#         )
-#         if result.matched_count == 0:
-#             raise HTTPException(status_code=404, detail="User not found")
-#         return {"status": "ok", "message": "Variable removed successfully"}
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         print(f"Error removing variable: {e}")
-#         raise HTTPException(status_code=500, detail="Failed to remove variable")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# # ----------------- CODE GENERATION -----------------
-# @app.post("/generate-code")
-# def generate_code(request: NarrativeRequest):
-#     try:
-#         max_attempts = 2
-#         intermediate = generate_IEC_JSON(request.narrative)
-#         response = validator(json.loads(intermediate))
-
-#         while response[0] == False and max_attempts > 0:
-#             max_attempts -= 1
-#             intermediate = regenerate_IEC_JSON(request.narrative, response[1], intermediate)
-#             response = validator(json.loads(intermediate))
-
-#         if response[0]:
-#             code = generator(json.loads(intermediate))
-#             if request.user_id and client:
-#                 chat_entry = {
-#                     "query": request.narrative,
-#                     "time": datetime.utcnow().isoformat(),
-#                     "generatedCode": code
-#                 }
-#                 variables_collection.update_one(
-#                     {"id": request.user_id},
-#                     {"$push": {"chatHistory": chat_entry}}
-#                 )
-#             return {"status": "ok", "code": code}
-#         else:
-#             raise HTTPException(status_code=400, detail=response[1])
-#     except Exception as e:
-#         print(f"Error generating code: {e}")
-#         raise HTTPException(status_code=500, detail="Code generation failed")
-# class NarrativeRequest(BaseModel):
-#     narrative: str
-#     user_id: Optional[str] = None
-
-# class ChatEntry(BaseModel):
-#     user_id: str
-#     query: str
-#     response: str
-#     feedback: Optional[str] = None
-
-
-# ----------------- CODE GENERATION -----------------
-
-
 
 @app.post("/generate-code")
 def generate_code(request: NarrativeRequest):
@@ -424,10 +296,14 @@ def generate_code(request: NarrativeRequest):
         max_attempts = 2
         refinedQuery =ai_refine_user_query(request.narrative)
         intermediate = generate_IEC_JSON(refinedQuery)
-        response = validator(json.loads(intermediate))
 
+        print( intermediate);
+        response = validator(json.loads(intermediate))
+        print(response);
         # try regeneration if validation fails
         while response[0] is False and max_attempts > 0:
+            print("Regeneration...",max_attempts)
+
             max_attempts -= 1
             intermediate = regenerate_IEC_JSON(
                 refinedQuery,
@@ -477,11 +353,14 @@ def regenerate_code(request: RegenerateRequest):
                 request.query,
                 refinedQuery,
                 request.intermediateCode    
-)        
-        response = validator(json.loads(intermediate))
+)       
+        print( intermediate);
 
+        response = validator(json.loads(intermediate))
+        print(response);
         # try regeneration if validation fails
         while response[0] is False and max_attempts > 0:
+            print("Regeneration...",max_attempts)
             max_attempts -= 1
             intermediate = regenerate_IEC_JSON(
                 refinedQuery,
@@ -568,7 +447,6 @@ def save_chat_entry(request: ChatEntryRequest):
         result = variables_collection.update_one(
             {"id": request.user_id},
             {"$push": {"chatHistory": new_entry}},
-            upsert=True
         )
 
         print("Update Result:", result.raw_result)  # Debugging line
@@ -578,6 +456,10 @@ def save_chat_entry(request: ChatEntryRequest):
     except Exception as e:
         print(f"Error saving chat entry: {e}")
         return {"status": "error", "message": "Failed to save chat entry"}
+    
+
+
+    
 # ----------------- DELETE CHAT ENTRY -----------------
 @app.delete("/delete-chat/{chat_id}")
 def delete_chat_entry(chat_id: str):
@@ -598,49 +480,3 @@ def delete_chat_entry(chat_id: str):
         print(f"Error deleting chat entry: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete chat entry")
 
-
-# # ----------------- REMOVE DUPLICATES -----------------
-# @app.delete("/remove-duplicates")
-# def remove_duplicates(user_id: Optional[str] = None):
-#     if not client:
-#         raise HTTPException(status_code=500, detail="Database connection failed")
-#     try:
-#         removed_count = 0
-
-#         def dedup(vars_list):
-#             seen = set()
-#             unique = []
-#             for var in vars_list:
-#                 name = var.get("name", "").lower()
-#                 if name not in seen:
-#                     seen.add(name)
-#                     unique.append(var)
-#             return unique
-
-#         if user_id:
-#             user = variables_collection.find_one({"id": user_id})
-#             if not user:
-#                 raise HTTPException(status_code=404, detail="User not found")
-#             variables = user.get("variables", [])
-#             unique = dedup(variables)
-#             variables_collection.update_one(
-#                 {"id": user_id}, {"$set": {"variables": unique}}
-#             )
-#             removed_count = len(variables) - len(unique)
-#         else:
-#             for user in variables_collection.find({}):
-#                 variables = user.get("variables", [])
-#                 unique = dedup(variables)
-#                 if len(unique) < len(variables):
-#                     variables_collection.update_one(
-#                         {"_id": user["_id"]}, {"$set": {"variables": unique}}
-#                     )
-#                     removed_count += len(variables) - len(unique)
-
-#         return {"status": "ok", "message": f"Removed {removed_count} duplicate variables"}
-
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         print(f"Error removing duplicates: {e}")
-#         raise HTTPException(status_code=500, detail="Failed to remove duplicates")

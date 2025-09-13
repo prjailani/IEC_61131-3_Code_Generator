@@ -208,9 +208,9 @@ Generate_System_Instruction = """You are an IEC 61131 Structured Text to JSON tr
 
 
 QueryRefineInstruction="""
-    You are a Query Refiner AI.
+     You are a Grammer checker.
     - Take the raw user request below.
-    - Rewrite it into a clear, single-paragraph instruction for generating Intermediate code.
+    - Rewrite it into a correct grammer and spelling corectly  only for general  words[ if  some word is diffent/doubt leave as orginal.]
     - Preserve all details, numbers, times, and device names.
     - Do not add information that wasn’t given.
     - Fix grammar and structure lightly so it’s understandable.
@@ -260,33 +260,26 @@ def ai_refine_user_query(user_input: str) -> str:
    
     template = QueryRefineInstruction
 
-
-
-
     prompt = ChatPromptTemplate.from_template(template)
 
     chain = prompt | llm  
     result = chain.invoke({"user_input": user_input})
-    print("\n\nRefine prompt Done  ...\n")
+    
     if hasattr(result, "content"):
         refined = result.content
     elif hasattr(result, "text"):
         refined = result.text
     else:
         refined = str(result)
+    print("\n\nRefine prompt Done  ...\n User query : ", refined)
+
     return refined.strip()
 
 
 
 
-
-
-# ================================================================================================================================================
-#                                              RAG Part ( Rag the data  form Knowledge Base KB)
-# ================================================================================================================================================
-
 def load_docs_from_path(folder_path: str):
-    """Load all .json or .txt files as raw strings."""
+    
     all_files = glob.glob(os.path.join(folder_path, "**/*.*"), recursive=True)
     docs = []
     for f in all_files:
@@ -296,76 +289,60 @@ def load_docs_from_path(folder_path: str):
                 docs.append({"text": text, "source": os.path.basename(f)})
     return docs
 
-script_directory = os.path.dirname(__file__)
-folder_path = os.path.join(script_directory, "kb")
-raw_docs = load_docs_from_path(folder_path)
+# ================================================================================================================================================
+#                                              RAG Part ( Rag the data  form Knowledge Base KB)
+# ================================================================================================================================================
 
-if not raw_docs:
-    raise ValueError("No documents found in KB folder!")
+retriever =None
 
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,     # Adjust as needed
-    chunk_overlap=150,   # Helps preserve context across chunks
-    separators=["\n\n", "\n", " ", ""]
-)
+def Rag():
+    global retriever 
 
-chunked_texts = []
-for d in raw_docs:
-    chunks = text_splitter.split_text(d["text"])
-    for i, chunk in enumerate(chunks):
-        chunked_texts.append({
-            "text": chunk,
-            "metadata": {
-                "source": d["source"],
-                "chunk_id": i
-            }
-        })
+    script_directory = os.path.dirname(__file__)
+    folder_path = os.path.join(script_directory, "kb")
+    raw_docs = load_docs_from_path(folder_path)
+    
+    if not raw_docs:
+        raise ValueError("No documents found in KB folder!")
+    
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,     # Adjust as needed
+        chunk_overlap=150,   # Helps preserve context across chunks
+        separators=["\n\n", "\n", " ", ""]
+    )
+    
+    chunked_texts = []
+    for d in raw_docs:
+        chunks = text_splitter.split_text(d["text"])
+        for i, chunk in enumerate(chunks):
+            chunked_texts.append({
+                "text": chunk,
+                "metadata": {
+                    "source": d["source"],
+                    "chunk_id": i
+                }
+            })
+    
+    
+    
+    
+    
+    
+    
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    
+    texts = [c["text"] for c in chunked_texts]
+    metadatas = [c["metadata"] for c in chunked_texts]
+    
+    vectorstore = FAISS.from_texts(texts, embedding=embeddings, metadatas=metadatas)
+    
+    base_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+    retriever= MultiQueryRetriever.from_llm(retriever=base_retriever, llm=llm)
+    print("\nRag done successfuly....")
 
+Rag()
 
-
-
-
-
-
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
-texts = [c["text"] for c in chunked_texts]
-metadatas = [c["metadata"] for c in chunked_texts]
-
-vectorstore = FAISS.from_texts(texts, embedding=embeddings, metadatas=metadatas)
-
-# 5️⃣ Create Multi-Query Retriever (basic Self-RAG behavior)
-base_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
-retriever = MultiQueryRetriever.from_llm(retriever=base_retriever, llm=llm)
-
-
-
-
-
-
-
-
-
-# def load_docs_from_path(folder_path: str):
-#     all_files = glob.glob(os.path.join(folder_path, "**/*.json"), recursive=True)
-#     docs = []
-#     for f in all_files:
-#         with open(f, "r", encoding="utf-8") as infile:
-#             docs.append(infile.read())
-#     return docs
-
-
-# script_directory = os.path.dirname(__file__)
-# folder_path = os.path.join(script_directory, "kb")
-# docs = load_docs_from_path(folder_path)
-
-# if not docs:
-#     raise ValueError("No documents found in KB folder!")
-
-# embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-# vectorstore = FAISS.from_texts(docs, embedding=embeddings)
-# retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
-
+print(retriever)
 
 
 # ================================================================================================================================================
