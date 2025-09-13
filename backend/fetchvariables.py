@@ -4,7 +4,7 @@ from pymongo import MongoClient
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://natrajrakul_db_user:kvxWYOeQXDOc0j7n@converter.wtd1klj.mongodb.net/?retryWrites=true&w=majority&appName=Converter")
 DB_NAME = "iec_code_generator" 
-COLLECTION_NAME = "variables"
+COLLECTION_NAME = "Users Credentials"
 
 try:
     client = MongoClient(MONGO_URI)
@@ -15,15 +15,17 @@ except Exception as e:
     client = None
     variables_collection=None
 
-def fetch_variables():
+def fetch_variables(user_id):
      
     if variables_collection is None:
         print("MongoDB collection is not initialized.")
         return []
     
     try:
-        print(os.getcwd())
-        variables = list(variables_collection.find({}))
+        variables = variables_collection.find({"id": user_id})
+        variables = list(variables_collection.find({"id": user_id}, {"variables": 1, "_id": 0}))[0]["variables"]
+
+        print(variables)
         for i in variables:
             del i['_id']
             del i['id']
@@ -35,4 +37,4 @@ def fetch_variables():
         print(f"Error fetching variables from MongoDB: {e}")
         return []
 
-fetch_variables()
+fetch_variables("user2915")

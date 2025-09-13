@@ -439,7 +439,7 @@ def generate_code(request: NarrativeRequest):
         if response[0] is False:
             raise HTTPException(status_code=400, detail=response[1])
         code = generator(json.loads(intermediate))
-        # print("\n\n\n", code ," \n\n Refine query : ",refinedQuery,"\n\n")
+        print("\n\n\n" ," \n\n Refine query : ",refinedQuery,"\n\n")
 
         if request.user_id:
             chat_entry = {
@@ -556,14 +556,22 @@ def save_chat_entry(request: ChatEntryRequest):
             "query": request.query,
             "response": request.response,
             "feedback": request.feedback,
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
+        print(request.user_id, new_entry)  # Debugging line
+        # Check if user exists first
+        user = variables_collection.find_one({"id": request.user_id})
+        if not user:
+            return {"status": "error", "message": "User not found"}
 
-        # Append to user's chat history or create new if not exist
+        # Append to user's chat history
         result = variables_collection.update_one(
             {"id": request.user_id},
-            {"$push": {"chat_history": new_entry}},
+            {"$push": {"chatHistory": new_entry}},
+            upsert=True
         )
+
+        print("Update Result:", result.raw_result)  # Debugging line
 
         return {"status": "ok", "chatEntry": new_entry}
 
