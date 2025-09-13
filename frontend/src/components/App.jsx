@@ -20,6 +20,8 @@ export default function App({ onLogout }) {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [error, setError] = useState(null);
   const [interCode, setInterCode] = useState([])
+    const [refinedQuery, setRefinedQuery] = useState('')
+
 
 
 const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -49,9 +51,10 @@ console.log(userId)
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId,
-          query: narrative,
+          query: 'Your : '+narrative +"\nRefine Query : "+refinedQuery,
           response: code,
           feedback: feedbackText
+          
         })
       });
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
@@ -83,6 +86,8 @@ console.log(userId)
     setIsLoading(true);
     setError(null);
     setGeneratedCode('');
+    setRefinedQuery('');
+
       ([])
 
     try {
@@ -96,6 +101,7 @@ console.log(userId)
       if (data.code) {
         setGeneratedCode(data.code);
         setInterCode(data.interCode);
+        setRefinedQuery(data.Refine);
       } else {
         setError('No code returned from API.');
       }
@@ -110,6 +116,8 @@ console.log(userId)
     if (!feedback.trim()) return;
     setIsRegenerating(true);
     setError(null);
+    setRefinedQuery('')
+
 
     const combinedQuery = `$Feedback for improvement: ${feedback}`;
     try {
@@ -123,6 +131,8 @@ console.log(userId)
       if (data.code) {
         setGeneratedCode(data.code);
         setInterCode(data.interCode);
+        setRefinedQuery(data.Refine)
+
         setFeedback('');
       } else {
         setError('No regenerated code returned from API.');

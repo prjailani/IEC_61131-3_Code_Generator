@@ -256,14 +256,24 @@ def refine_user_query(user_input: str) -> str:
 
 
 
-def ai_refine_user_query(user_input: str, llm) -> str:
+def ai_refine_user_query(user_input: str) -> str:
    
     template = QueryRefineInstruction
 
-    prompt = ChatPromptTemplate.from_template(template)
-    chain = LLMChain(prompt=prompt, llm=llm)
 
-    refined = chain.run(user_input=user_input)
+
+
+    prompt = ChatPromptTemplate.from_template(template)
+
+    chain = prompt | llm  
+    result = chain.invoke({"user_input": user_input})
+    print("\n\nRefine prompt Done  ...\n")
+    if hasattr(result, "content"):
+        refined = result.content
+    elif hasattr(result, "text"):
+        refined = result.text
+    else:
+        refined = str(result)
     return refined.strip()
 
 
@@ -376,7 +386,8 @@ def generate_IEC_JSON(user_query):
         chain_type_kwargs={"prompt": prompt},
     )
 
-    print("\n\n\nHere  is the  qu_chain \n\n", qa_chain, " \n\n")
+    # print("\n\n\nHere  is the  qu_chain \n\n", qa_chain, " \n\n")
+    print("\nGeneration Done  ...\n")
 
     # print(qa_chain)
 
@@ -408,7 +419,7 @@ def regenerate_IEC_JSON(user_query, issue, generated_code):
         retriever=retriever,
         chain_type_kwargs={"prompt": prompt},
     )
-    print("\n\n\nHere  is the  qu_chain \n\n", qa_chain, " \n\n")
+    print("\nReGeneration Done  ...\n")
     query = "previous user query: " + user_query + "\n\n issue in exiting code : " + issue + " \n\n Already Generated_code : \n" + generated_code
     result = qa_chain.invoke({"query": query})
 
@@ -416,8 +427,8 @@ def regenerate_IEC_JSON(user_query, issue, generated_code):
 
 
 
-# print(ai_refine_user_query("turn on motor at 6 mornign and  off at  2pm then on the kitchen lgight at 3 pm" ,llm))
-print(refine_user_query("turn on motor at 6 mornign and  off at  2pm then on the kitchen lgight at 3 pm"))
+# print(ai_refine_user_query("turn on motor at 6 mornign and  off at  2pm then on the kitchen lgight at 3 pm" ))
+# print(refine_user_query("turn on motor at 6 mornign and  off at  2pm then on the kitchen lgight at 3 pm"))
 
 
 
