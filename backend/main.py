@@ -300,10 +300,8 @@ def generate_code(request: NarrativeRequest):
         refinedQuery =ai_refine_user_query(request.narrative)
         intermediate = generate_IEC_JSON(refinedQuery)
 
-        print( intermediate)
         response = validator(json.loads(intermediate))
-        print(response)
-        # try regeneration if validation fails
+
         while response[0] is False and max_attempts > 0:
             print("Regeneration...",max_attempts)
 
@@ -318,7 +316,6 @@ def generate_code(request: NarrativeRequest):
         if response[0] is False:
             raise HTTPException(status_code=400, detail=response[1])
         code = generator(json.loads(intermediate))
-        # print("\n\n\n" ," \n\n Refine query : ",refinedQuery,"\n\n")
 
         if request.user_id:
             chat_entry = {

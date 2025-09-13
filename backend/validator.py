@@ -806,10 +806,10 @@ def load_device_variables() -> Dict[str, str]:
                     vars_from_file[name.strip()] = datatype.upper()
 
     except FileNotFoundError as e:
-        print(e)
+        # print(e)
         return {}
     except json.JSONDecodeError:
-        print(f"Error: The file '{file_path}' is not a valid JSON file.")
+        # print(f"Error: The file '{file_path}' is not a valid JSON file.")
         return {}
     return vars_from_file
 
