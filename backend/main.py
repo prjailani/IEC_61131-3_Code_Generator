@@ -225,7 +225,7 @@ def get_variables(user_id: str):
     try:
         user = variables_collection.find_one({"id": user_id})
         if not user:
-            return {"status": "error", "message": "User not found"}
+            return {"status": "ok", "variables": []}
         variables = user.get("variables", [])
         return {"status": "ok", "variables": variables}
     except Exception as e:
@@ -358,8 +358,12 @@ def remove_variable(user_id: str, variable_name: str):
 
 
 # ----------------- CODE GENERATION -----------------
+
+
+
 @app.post("/generate-code")
 def generate_code(request: NarrativeRequest):
+  
     if not client:
         raise HTTPException(status_code=500, detail="Database connection failed")
     try:
@@ -379,10 +383,9 @@ def generate_code(request: NarrativeRequest):
 
         if response[0] is False:
             raise HTTPException(status_code=400, detail=response[1])
-
         code = generator(json.loads(intermediate))
+        print("\n\n\n", code ,"\n\n")
 
-        # if user_id provided, store in Mongo
         if request.user_id:
             chat_entry = {
                 "id": str(ObjectId()),
@@ -396,13 +399,85 @@ def generate_code(request: NarrativeRequest):
                 upsert=True
             )
 
-        return {"status": "ok", "code": code}
+        return {"status": "ok", "code": code , "interCode":intermediate}
 
     except HTTPException:
         raise
     except Exception as e:
         print(f"Error generating code: {e}")
         raise HTTPException(status_code=500, detail="Code generation failed")
+
+
+
+
+class RegenerateRequest(BaseModel):
+    query : str
+    feedback: str
+    intermediateCode : str
+    user_id: Optional[str] = None
+
+
+@app.post("/regenerate-code")
+def regenerate_code(request: RegenerateRequest):
+    if not client:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        max_attempts = 2
+        intermediate = regenerate_IEC_JSON(
+                request.query,
+                request.feedback,
+                request.intermediateCode    
+)        
+        response = validator(json.loads(intermediate))
+
+        # try regeneration if validation fails
+        while response[0] is False and max_attempts > 0:
+            max_attempts -= 1
+            intermediate = regenerate_IEC_JSON(
+                request.query,
+                response[1],
+                intermediate
+            )
+            response = validator(json.loads(intermediate))
+
+        if response[0] is False:
+            raise HTTPException(status_code=400, detail=response[1])
+        code = generator(json.loads(intermediate))
+        print(request.feedback,"\n\n\n", code ,"\n\n")
+        
+        if request.user_id:
+            chat_entry = {
+                "id": str(ObjectId()),
+                "query": request.narrative,
+                "generatedCode": code,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            variables_collection.update_one(
+                {"id": request.user_id},
+                {"$push": {"chatHistory": chat_entry}},
+                upsert=True
+            )
+
+        return {"status": "ok", "code": code , "interCode":intermediate}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error generating code: {e}")
+        raise HTTPException(status_code=500, detail="Code generation failed")
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # ----------------- CHAT HISTORY -----------------

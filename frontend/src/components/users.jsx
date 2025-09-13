@@ -8,8 +8,8 @@ export default function Users({ onGoBack }) {
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-const userId = localStorage.getItem('user_id');
-
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+const userId = user.id;  
   const [newVariableForm, setNewVariableForm] = useState({
     name: '',
     dataType: 'BOOL',
@@ -27,6 +27,7 @@ const userId = localStorage.getItem('user_id');
     setIsLoading(true);
     setError(null);
     try {
+      console.log(userId)
       const response = await fetch(`http://127.0.0.1:8000/get-variables/${userId}`);
       if (!response.ok) {
         const errorData = await response.text();

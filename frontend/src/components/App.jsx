@@ -19,9 +19,13 @@ export default function App({ onLogout }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [error, setError] = useState(null);
+  const [interCode, setInterCode] = useState([])
 
-  const userId = localStorage.getItem('user_id') || 'default_user';
 
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+const userId = user.id;  
+
+console.log(userId)
   // Fetch chat history when page loads
   useEffect(() => {
     async function loadHistory() {
@@ -79,6 +83,7 @@ export default function App({ onLogout }) {
     setIsLoading(true);
     setError(null);
     setGeneratedCode('');
+      ([])
 
     try {
       const response = await fetch('http://127.0.0.1:8000/generate-code', {
@@ -90,6 +95,7 @@ export default function App({ onLogout }) {
       const data = await response.json();
       if (data.code) {
         setGeneratedCode(data.code);
+        setInterCode(data.interCode);
       } else {
         setError('No code returned from API.');
       }
@@ -105,17 +111,18 @@ export default function App({ onLogout }) {
     setIsRegenerating(true);
     setError(null);
 
-    const combinedQuery = `${narrativeText}\n\nFeedback for improvement: ${feedback}`;
+    const combinedQuery = `$Feedback for improvement: ${feedback}`;
     try {
-      const response = await fetch('http://127.0.0.1:8000/generate-code', {
+      const response = await fetch('http://127.0.0.1:8000/regenerate-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ narrative: combinedQuery })
+        body: JSON.stringify({ query: narrativeText,feedback: combinedQuery , intermediateCode : interCode})
       });
       if (!response.ok) throw new Error(`HTTP error ${response.status}`);
       const data = await response.json();
       if (data.code) {
         setGeneratedCode(data.code);
+        setInterCode(data.interCode);
         setFeedback('');
       } else {
         setError('No regenerated code returned from API.');
