@@ -9,6 +9,7 @@ from pymongo import MongoClient
 import re 
 from typing import List, Optional
 import hashlib
+from fetchvariables import fetch_variables
 
 from bson import ObjectId
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
@@ -169,6 +170,7 @@ def register_user(request: CreateUserRequest):
         }
         result = variables_collection.insert_one(user_data)
         user_data["_id"] = str(result.inserted_id)
+        fetch_variables( user_data["id"])
         return {
             "status": "ok",
             "message": "User registered successfully",
@@ -196,6 +198,7 @@ def login_user(request: LoginRequest):
         user = variables_collection.find_one({"email": request.email})
         if not user or not verify_password(request.password, user["password"]):
             raise HTTPException(status_code=401, detail="Invalid email or password")
+        fetch_variables( user["id"])
         return {
             "status": "ok",
             "message": "Login successful",
@@ -261,11 +264,11 @@ def save_variables( request: SaveVariablesRequest):
         result = variables_collection.update_one(
             {"id": request.user_id},
             {"$set": {"variables": [var.model_dump() for var in request.variables]}},
-            upsert=True
-
         )
+        
         if result.matched_count == 0:
             return {"status": "error", "message": "User not found"}
+        fetch_variables(request.user_id)
         return {"status": "ok", "message": f"Saved {len(request.variables)} variables"}
     except Exception as e:
         print(f"Error saving variables: {e}")
