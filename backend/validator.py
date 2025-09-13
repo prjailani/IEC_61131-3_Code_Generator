@@ -800,7 +800,7 @@ def load_device_variables() -> Dict[str, str]:
         with open(file_path, 'r') as f:
             data = json.load(f)
             for item in data:
-                name = item.get("deviceName")
+                name = item.get("name")
                 datatype = item.get("dataType")
                 if name and datatype:
                     vars_from_file[name.strip()] = datatype.upper()
