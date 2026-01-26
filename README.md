@@ -177,13 +177,6 @@ IEC_61131-3_Code_Generator/
 - The MongoDB URI should use proper credentials
 - Rotate API keys periodically
 
-## Authors
-
-- **Abdul kader jailani**
-- **Arul karthikeyan**
-- **Rakul**
-- **NandhiRaja**
-
 ## License
 
 MIT License - see LICENSE file for details
