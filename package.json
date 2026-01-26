@@ -1,22 +1,25 @@
 {
   "name": "iec-converter",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "IEC 61131-3 Structured Text Code Generator from Natural Language",
   "scripts": {
-    "dev": "concurrently \"vite\" \"cd backend && python fetchvariables.py\" \"cd backend && python -m uvicorn main:app --reload\" ",
+    "dev": "vite",
+    "dev:full": "concurrently -n \"frontend,sync,backend\" -c \"cyan,yellow,green\" \"vite\" \"cd backend && ..\\venv\\Scripts\\python fetchvariables.py\" \"cd backend && ..\\venv\\Scripts\\python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000\"",
+    "dev:frontend": "vite",
+    "dev:backend": "cd backend && ..\\venv\\Scripts\\python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+    "sync:variables": "cd backend && ..\\venv\\Scripts\\python fetchvariables.py",
     "build": "vite build",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "preview": "vite preview"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.12",
-    "@xyflow/react": "^12.8.4",
-    "npx": "^10.2.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-icons": "^5.5.0",
-    "reactflow": "^11.11.4"
+    "react-icons": "^5.5.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
@@ -32,5 +35,8 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^3.1.12",
     "vite": "^7.1.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

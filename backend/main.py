@@ -1,188 +1,239 @@
-from fastapi import FastAPI, Body, UploadFile, File, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import random
+"""
+IEC 61131-3 Code Generator Backend API
+
+FastAPI application entry point.
+Converts natural language to IEC 61131-3 Structured Text code.
+"""
+
+import logging
 import sys
 import os
 import json
-from pymongo import MongoClient
-import re 
+import re
+from contextlib import asynccontextmanager
+from typing import List, Optional
+from pathlib import Path
 
+from dotenv import load_dotenv
 
-# Make sure these imports are correct for your project
+# Load .env from parent directory (project root)
+root_env = Path(__file__).parent.parent / ".env"
+load_dotenv(root_env)
+
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+# Add parent directory for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
-from AI_Integration.main import generate_IEC_JSON, regenerate_IEC_JSON
-from validator import validator
-from generator import generator
+# Import core modules
+from core import settings, init_database, close_database, get_collection, db_manager
+from models import (
+    NarrativeRequest, 
+    Variable, 
+    SaveVariablesRequest, 
+    GenerateResponse,
+    HealthResponse,
+)
+from services import (
+    generate_code as generate_code_service,
+    CodeGenerationError,
+    variables_service,
+    VariablesServiceError,
+)
 
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://natrajrakul_db_user:kvxWYOeQXDOc0j7n@converter.wtd1klj.mongodb.net/?retryWrites=true&w=majority&appName=Converter")
-DB_NAME = "iec_code_generator" 
-COLLECTION_NAME = "variables"
-
-try:
-    client = MongoClient(MONGO_URI)
-    db = client[DB_NAME]
-    variables_collection = db[COLLECTION_NAME]
-    print("Successfully connected to MongoDB!")
-except Exception as e:
-    print(f"Failed to connect to MongoDB: {e}")
-    client = None
-    variables_collection=None
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, settings.log_level),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler for startup/shutdown."""
+    # Startup
+    logger.info("Starting IEC 61131-3 Code Generator API")
+    init_database()
+    yield
+    # Shutdown
+    close_database()
+    logger.info("Shutdown complete")
+
+
+# Create FastAPI app
+app = FastAPI(
+    title="IEC 61131-3 Code Generator API",
+    description="Convert natural language to IEC 61131-3 Structured Text",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=settings.allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
 
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"status": "error", "message": "An internal server error occurred"}
+    )
 
-@app.get("/home")
-def root():
-    return {"vazhthu":"Vanakkam"}
 
-class NarrativeRequest(BaseModel):
-    narrative: str
+# ============================================================================
+# Health Check Endpoints
+# ============================================================================
 
-class Variable(BaseModel):
-    deviceName: str
-    dataType: str
-    range: str
-    MetaData: str
-    id: str = None # Make id optional for existing documents
+@app.get("/", response_model=HealthResponse)
+@app.get("/home", response_model=HealthResponse)
+def health_check():
+    """Health check endpoint."""
+    return HealthResponse(
+        status="ok",
+        message="IEC 61131-3 Code Generator API",
+        database_connected=db_manager.is_connected
+    )
 
-class SaveVariablesRequest(BaseModel):
-    variables: list[Variable]
 
-@app.post("/generate-code")
-def generateCode(body:NarrativeRequest):
-    max_attempts = 2
-    intermediate = generate_IEC_JSON(body.narrative)
-    response = validator(json.loads(intermediate))
+# ============================================================================
+# Code Generation Endpoints
+# ============================================================================
 
+@app.post("/generate-code", response_model=GenerateResponse)
+def generate_code(body: NarrativeRequest):
+    """
+    Generate IEC 61131-3 Structured Text code from natural language.
     
-    while(response[0] == False and max_attempts>0):
-        max_attempts -= 1
-        print("Regenerating IEC JSON due to validation errors...")
-        print(intermediate)
-        print(response[1])
-        print("\n\n\n\n")
-        intermediate = regenerate_IEC_JSON(body.narrative ,response[1],intermediate)
-        response = validator(json.loads(intermediate))
-    print(intermediate)
-    if(response[0]):
-        code = generator(json.loads(intermediate))
+    The process involves:
+    1. AI generates intermediate JSON representation
+    2. Validator checks the JSON for errors
+    3. If errors found, regeneration is attempted (up to 2 times)
+    4. Generator converts valid JSON to Structured Text
+    """
+    try:
+        code = generate_code_service(body.narrative)
+        logger.info("Code generation successful")
+        return GenerateResponse(status="ok", code=code)
         
-        return {"status":"ok","code":code}
-    else:
-        raise HTTPException(status_code=400, detail=response[1])
+    except CodeGenerationError as e:
+        if e.is_validation_error:
+            raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    except Exception as e:
+        logger.error(f"Unexpected error in code generation: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+
+# ============================================================================
+# Variables Management Endpoints
+# ============================================================================
+
+@app.get("/get-variables")
+def get_variables():
+    """Get all variables from the database."""
+    try:
+        variables = variables_service.get_all()
+        return {"status": "ok", "variables": variables}
+        
+    except VariablesServiceError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+        
+    except Exception as e:
+        logger.error(f"Error getting variables: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve variables")
+
 
 @app.post("/save-variables")
 def save_variables(body: SaveVariablesRequest):
     """
-    This endpoint synchronizes the frontend's variables with the MongoDB database.
-    It deletes removed items, updates existing ones, and adds new ones.
+    Synchronize variables with the database.
+    Deletes removed items, updates existing, and adds new ones.
     """
-    if not client:
-        return {"status": "error", "message": "Database connection failed."}
-
     try:
-        # 1. Get current variables from the database
-        db_variables = list(variables_collection.find({}, {"deviceName": 1}))
-        db_device_names = {doc["deviceName"] for doc in db_variables}
+        result = variables_service.save_all(body.variables)
+        return result
         
-        # 2. Get device names from the frontend's list
-        frontend_device_names = {var.deviceName for var in body.variables}
+    except VariablesServiceError as e:
+        raise HTTPException(status_code=503, detail=str(e))
         
-        # 3. Identify and delete variables that are in the database but not on the frontend
-        deleted_names = db_device_names - frontend_device_names
-        if deleted_names:
-            variables_collection.delete_many({"deviceName": {"$in": list(deleted_names)}})
-
-        # 4. Add or update the variables from the frontend's list
-        for var in body.variables:
-            query = {"deviceName": {"$regex": f"^{re.escape(var.deviceName)}$", "$options": "i"}}
-            variables_collection.update_one(
-                query,
-                {"$set": var.dict()},
-                upsert=True
-            )
-        
-        return {"status": "ok", "message": f"Successfully synchronized {len(body.variables)} variables."}
     except Exception as e:
-        print(f"Error synchronizing with database: {e}")
-        return {"status": "error", "message": "Failed to save variables to the database."}
+        logger.error(f"Error saving variables: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to save variables")
+
 
 @app.post("/upload-variables-json")
 async def upload_variables_json(file: UploadFile = File(...)):
-    """
-    This endpoint receives a JSON file, parses its contents, and saves the
-    variables to a MongoDB database.
-    """
-    if not client:
-        return {"status": "error", "message": "Database connection failed."}
+    """Upload variables from a JSON file."""
+    # Validate file type
+    if not file.filename.endswith('.json'):
+        raise HTTPException(status_code=400, detail="Only JSON files are allowed")
     
+    # Read and check size
+    contents = await file.read()
+    if len(contents) > settings.max_upload_size:
+        max_mb = settings.max_upload_size // 1024 // 1024
+        raise HTTPException(status_code=400, detail=f"File too large. Maximum size is {max_mb}MB")
+    
+    # Parse JSON
     try:
-        contents = await file.read()
         variables_list = json.loads(contents.decode("utf-8"))
-
-        for var in variables_list:
-            variables_collection.update_one(
-                {"id": var.get("id", str(random.getrandbits(32)))},
-                {"$set": var},
-                upsert=True
-            )
-        
-        return {"status": "ok", "message": f"Successfully uploaded and saved {len(variables_list)} variables."}
     except json.JSONDecodeError:
-        return {"status": "error", "message": "Invalid JSON file format."}
-    except Exception as e:
-        print(f"Error processing file upload: {e}")
-        return {"status": "error", "message": "An unexpected error occurred during file upload."}
-
-@app.get("/get-variables")
-def get_variables():
-    """
-    This endpoint retrieves all saved variables from the MongoDB database.
-    """
-    if not client:
-        return {"status": "error", "message": "Database connection failed."}
-
+        raise HTTPException(status_code=400, detail="Invalid JSON file format")
+    
+    # Validate format
+    if not isinstance(variables_list, list):
+        raise HTTPException(status_code=400, detail="JSON must be an array of variables")
+    
+    for i, var in enumerate(variables_list):
+        if not isinstance(var, dict):
+            raise HTTPException(status_code=400, detail=f"Item {i} is not a valid object")
+        if 'deviceName' not in var or 'dataType' not in var:
+            raise HTTPException(status_code=400, detail=f"Item {i} missing required fields")
+    
+    # Upload
     try:
-        # Fetch all documents and return them
-        variables = list(variables_collection.find({}, {"_id": 0})) 
-        return {"status": "ok", "variables": variables}
+        result = variables_service.upload_from_list(variables_list)
+        return result
+        
+    except VariablesServiceError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+        
     except Exception as e:
-        print(f"Error retrieving from MongoDB: {e}")
-        return {"status": "error", "message": "Failed to retrieve variables from the database."}
+        logger.error(f"Error uploading variables: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to upload variables")
+
 
 @app.delete("/remove-duplicates")
 def remove_duplicates():
-    """
-    Removes all but one of the duplicate variables based on deviceName (case-insensitive).
-    """
-    if not client:
-        raise HTTPException(status_code=500, detail="Database connection failed.")
-    
+    """Remove duplicate variables (case-insensitive by deviceName)."""
     try:
-        # Get all device names
-        device_names = [doc["deviceName"] for doc in variables_collection.find({}, {"deviceName": 1})]
+        result = variables_service.remove_duplicates()
+        return result
         
-        # Keep track of unique device names (case-insensitive)
-        seen_names = {}
-        for name in device_names:
-            lower_name = name.lower()
-            if lower_name not in seen_names:
-                seen_names[lower_name] = True
-            else:
-                # Found a duplicate, remove it
-                variables_collection.delete_one({"deviceName": name})
+    except VariablesServiceError as e:
+        raise HTTPException(status_code=503, detail=str(e))
         
-        return {"status": "ok", "message": "Duplicates have been removed."}
     except Exception as e:
-        print(f"Error removing duplicates: {e}")
-        raise HTTPException(status_code=500, detail="An error occurred while removing duplicates.")
+        logger.error(f"Error removing duplicates: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to remove duplicates")
+
+
+# ============================================================================
+# Application Info
+# ============================================================================
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

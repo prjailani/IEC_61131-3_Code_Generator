@@ -1,9 +1,19 @@
+"""
+IEC 61131-3 Code Validator
+
+Validates intermediate JSON representation for IEC 61131-3 code generation.
+Checks syntax, semantics, type compatibility, and device variable matching.
+"""
 
 import re
-from typing import List, Dict, Tuple, Any, Optional
-
 import json
 import os
+import logging
+from pathlib import Path
+from typing import List, Dict, Tuple, Any, Optional
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 IDENT = r"[A-Za-z_][A-Za-z0-9_]*"
 
@@ -788,29 +798,71 @@ def stmtChecker(stmt: dict,
 
 
 def load_device_variables() -> Dict[str, str]:
-    """Load device variables from a local JSON file using the absolute path."""
+    """
+    Load device variables from the database (preferred) or local JSON file (fallback).
     
-    file_path = r".././AI_Integration/kb/templates/variables.json"
-    vars_from_file = {}
-
+    Returns:
+        Dictionary mapping device names to their data types
+    """
+    vars_from_db: Dict[str, str] = {}
+    
+    # Try to load from database first
     try:
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Error: The file '{file_path}' does not exist.")
-            
-        with open(file_path, 'r') as f:
-            data = json.load(f)
-            for item in data:
+        from core import get_collection
+        collection = get_collection()
+        if collection is not None:
+            # Load from database
+            cursor = collection.find({}, {"deviceName": 1, "dataType": 1, "_id": 0})
+            for item in cursor:
                 name = item.get("deviceName")
                 datatype = item.get("dataType")
                 if name and datatype:
-                    vars_from_file[name.strip()] = datatype.upper()
+                    vars_from_db[name.strip()] = datatype.upper()
+            
+            if vars_from_db:
+                logger.info(f"Loaded {len(vars_from_db)} device variables from database")
+                return vars_from_db
+    except Exception as e:
+        logger.warning(f"Could not load from database, falling back to file: {e}")
+    
+    # Fallback: Load from local JSON file
+    script_dir = Path(__file__).parent
+    file_path = script_dir.parent / "AI_Integration" / "kb" / "templates" / "variables.json"
+    
+    vars_from_file: Dict[str, str] = {}
+
+    try:
+        if not file_path.exists():
+            logger.error(f"Variables file not found: {file_path}")
+            return {}
+            
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            
+        if not isinstance(data, list):
+            logger.error(f"Variables file should contain a list, got {type(data)}")
+            return {}
+            
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("deviceName")
+            datatype = item.get("dataType")
+            if name and datatype:
+                vars_from_file[name.strip()] = datatype.upper()
+
+        logger.info(f"Loaded {len(vars_from_file)} device variables from file")
 
     except FileNotFoundError as e:
-        print(e)
+        logger.error(f"Variables file not found: {e}")
         return {}
-    except json.JSONDecodeError:
-        print(f"Error: The file '{file_path}' is not a valid JSON file.")
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in variables file: {e}")
         return {}
+    except Exception as e:
+        logger.error(f"Error loading device variables: {e}")
+        return {}
+        
     return vars_from_file
 
 
